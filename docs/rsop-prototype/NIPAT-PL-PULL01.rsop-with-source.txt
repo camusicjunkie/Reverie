@@ -1,0 +1,96 @@
+DscDiagnostic: {}
+Description: Pull in Production                                          AllNodes\Production\Platforms\NIPAT-PL-PULL01
+OsStig: Server2019Core                                                   AllNodes\Production\Platforms\NIPAT-PL-PULL01
+WindowsServer:
+  OrgSettings: D:\Downloads\WindowsServer-2019-MS-2.4.org.default.xml
+  StigVersion: 2.4                                                                                Stigs\Server2019Core
+  OsVersion: 2019                                                                                 Stigs\Server2019Core
+  OsRole: MS
+  SkipRule: V-205663                                                                                        Roles\Pull
+  SkipRuleType: ProcessMitigationRule
+Name: NIPAT-PL-PULL01
+DscLcmController:
+  MonitorInterval: 00:15:00                                                                           Baselines\DscLcm
+  SendDscTaggingData: True                                                                            Baselines\DscLcm
+  AutoCorrectInterval: 00:30:00                                                                       Baselines\DscLcm
+  MaintenanceWindowMode: AutoCorrect                                                                  Baselines\DscLcm
+  RefreshIntervalOverride: False                                                                      Baselines\DscLcm
+  MaintenanceWindowOverride: False                                                                    Baselines\DscLcm
+  ControllerInterval: 00:05:00                                                                        Baselines\DscLcm
+  RefreshInterval: 00:30:00                                                                           Baselines\DscLcm
+  MaxLcmRuntime: 00:30:00                                                                             Baselines\DscLcm
+  LogHistoryTimeSpan: 7.00:00:00                                                                      Baselines\DscLcm
+  WriteTranscripts: True                                                                              Baselines\DscLcm
+  AutoCorrectIntervalOverride: False                                                                  Baselines\DscLcm
+DscTagging:
+  Environment: Production
+  Version: 0.3.0
+  Layers:
+  - AllNodes\Production\Platforms\NIPAT-PL-PULL01                        AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Teams\Platforms                                                      AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Environments\Production                                              AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Locations\Patch                                                      AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Roles\Pull                                                           AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Stigs\Server2019Core                                                 AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Baselines\Server                                                     AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Baselines\DscLcm                                                     AllNodes\Production\Platforms\NIPAT-PL-PULL01
+PSDscAllowDomainUser: True                                               AllNodes\Production\Platforms\NIPAT-PL-PULL01
+ComputerSettings:
+  Description: Pull in Production                                        AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  Name: NIPAT-PL-PULL01                                                  AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  TimeZone: W. Europe Standard Time
+DscLcmMaintenanceWindows:
+  MaintenanceWindows:
+    Name: Always                                                                                      Baselines\DscLcm
+    StartTime: 00:00:00                                                                               Baselines\DscLcm
+    Timespan: 24:00:00                                                                                Baselines\DscLcm
+  DependsOn: '[DscLcmController]DscLcmController                                                       Baselines\DscLcm'
+Configurations:
+- IisServer                                                                                                 Roles\Pull
+- WindowsServer                                                                                   Stigs\Server2019Core
+- DotNetFramework                                                                                 Stigs\Server2019Core
+- ComputerSettings                                                                                    Baselines\Server
+- LocalGroups                                                                                         Baselines\Server
+- DscLcmController                                                                                    Baselines\DscLcm
+- DscLcmMaintenanceWindows                                                                            Baselines\DscLcm
+- DscTagging                                                                                          Baselines\DscLcm
+- DscDiagnostic                                                                                       Baselines\DscLcm
+Location: Patch                                                          AllNodes\Production\Platforms\NIPAT-PL-PULL01
+Team: Platforms                                                          AllNodes\Production\Platforms\NIPAT-PL-PULL01
+Baseline: Server                                                         AllNodes\Production\Platforms\NIPAT-PL-PULL01
+DotNetFramework:
+  FrameworkVersion: 4                                                                             Stigs\Server2019Core
+  StigVersion: 2.1                                                                                Stigs\Server2019Core
+CertificateFile: C:\Temp\NIPAT-PL-PULL01.cer                             AllNodes\Production\Platforms\NIPAT-PL-PULL01
+IisServer:
+  StigVersion: 2.5                                                                                          Roles\Pull
+  LogPath: D:\Downloads\Logs                                                                                Roles\Pull
+  IisVersion: 10.0                                                                                          Roles\Pull
+NodeName: NIPAT-PL-PULL01                                                AllNodes\Production\Platforms\NIPAT-PL-PULL01
+Environment: Production                                                  AllNodes\Production\Platforms\NIPAT-PL-PULL01
+LcmConfig:
+  ConfigurationRepositoryWeb:
+    Server:
+      ConfigurationNames: NIPAT-PL-PULL01                                AllNodes\Production\Platforms\NIPAT-PL-PULL01
+      RegistrationKey: ec717ee9-b343-49ee-98a2-26e53939eecf
+      ServerURL: https://dscpull01.contoso.com:8080/PSDSCPullServer.svc
+  ReportServerWeb:
+    RegistrationKey: ec717ee9-b343-49ee-98a2-26e53939eecf                                             Baselines\DscLcm
+    ServerURL: https://dscpull01.contoso.com:8080/PSDSCPullServer.svc                                 Baselines\DscLcm
+  Settings:
+    CertificateID: A428BD0CDE918995D330D15FA0656E9CBB58236F                                           Baselines\DscLcm
+    AllowModuleOverwrite: True                                                                        Baselines\DscLcm
+    RefreshFrequencyMins: 30                                                                          Baselines\DscLcm
+    RefreshMode: Pull                                                                                 Baselines\DscLcm
+    RebootNodeIfNeeded: True                                                                          Baselines\DscLcm
+    ActionAfterReboot: ContinueConfiguration                                                          Baselines\DscLcm
+    ConfigurationMode: ApplyAndMonitor                                                                Baselines\DscLcm
+    ConfigurationModeFrequencyMins: 30                                                                Baselines\DscLcm
+Role: Pull                                                               AllNodes\Production\Platforms\NIPAT-PL-PULL01
+LocalGroups:
+  Groups:
+    Credential: install@contoso:*********                                                             Baselines\Server
+    GroupName: Administrators                                                                         Baselines\Server
+    Members:
+    - SG-SA-ServerAdmins                                                                              Baselines\Server
+    - SG-SA-ServerAdminServiceAccounts                                                                Baselines\Server

@@ -1,0 +1,96 @@
+DscDiagnostic: {}
+Description: Pull in Production
+OsStig: Server2019Core
+WindowsServer:
+  OrgSettings: D:\Downloads\WindowsServer-2019-MS-2.4.org.default.xml
+  StigVersion: 2.4
+  OsVersion: 2019
+  OsRole: MS
+  SkipRule: V-205663
+  SkipRuleType: ProcessMitigationRule
+Name: NIPAT-PL-PULL01
+DscLcmController:
+  MonitorInterval: 00:15:00
+  SendDscTaggingData: true
+  AutoCorrectInterval: 00:30:00
+  MaintenanceWindowMode: AutoCorrect
+  RefreshIntervalOverride: false
+  MaintenanceWindowOverride: false
+  ControllerInterval: 00:05:00
+  RefreshInterval: 00:30:00
+  MaxLcmRuntime: 00:30:00
+  LogHistoryTimeSpan: 7.00:00:00
+  WriteTranscripts: true
+  AutoCorrectIntervalOverride: false
+DscTagging:
+  Environment: Production
+  Version: 0.3.0
+  Layers:
+  - AllNodes\Production\Platforms\NIPAT-PL-PULL01
+  - Teams\Platforms
+  - Environments\Production
+  - Locations\Patch
+  - Roles\Pull
+  - Stigs\Server2019Core
+  - Baselines\Server
+  - Baselines\DscLcm
+PSDscAllowDomainUser: true
+ComputerSettings:
+  Description: Pull in Production
+  Name: NIPAT-PL-PULL01
+  TimeZone: W. Europe Standard Time
+DscLcmMaintenanceWindows:
+  MaintenanceWindows:
+    Name: Always
+    StartTime: 00:00:00
+    Timespan: 24:00:00
+  DependsOn: '[DscLcmController]DscLcmController'
+Configurations:
+- IisServer
+- WindowsServer
+- DotNetFramework
+- ComputerSettings
+- LocalGroups
+- DscLcmController
+- DscLcmMaintenanceWindows
+- DscTagging
+- DscDiagnostic
+Location: Patch
+Team: Platforms
+Baseline: Server
+DotNetFramework:
+  FrameworkVersion: 4
+  StigVersion: 2.1
+CertificateFile: C:\Temp\NIPAT-PL-PULL01.cer
+IisServer:
+  StigVersion: 2.5
+  LogPath: D:\Downloads\Logs
+  IisVersion: "10.0"
+NodeName: NIPAT-PL-PULL01
+Environment: Production
+LcmConfig:
+  ConfigurationRepositoryWeb:
+    Server:
+      ConfigurationNames: NIPAT-PL-PULL01
+      RegistrationKey: ec717ee9-b343-49ee-98a2-26e53939eecf
+      ServerURL: https://dscpull01.contoso.com:8080/PSDSCPullServer.svc
+  ReportServerWeb:
+    RegistrationKey: ec717ee9-b343-49ee-98a2-26e53939eecf
+    ServerURL: https://dscpull01.contoso.com:8080/PSDSCPullServer.svc
+  Settings:
+    CertificateID: A428BD0CDE918995D330D15FA0656E9CBB58236F
+    AllowModuleOverwrite: true
+    RefreshFrequencyMins: 30
+    RefreshMode: Pull
+    RebootNodeIfNeeded: true
+    ActionAfterReboot: ContinueConfiguration
+    ConfigurationMode: ApplyAndMonitor
+    ConfigurationModeFrequencyMins: 30
+Role: Pull
+LocalGroups:
+  Groups:
+    Credential: install@contoso:*********
+    GroupName: Administrators
+    Members:
+    - SG-SA-ServerAdmins
+    - SG-SA-ServerAdminServiceAccounts
