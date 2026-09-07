@@ -1,0 +1,15 @@
+---
+windows_server:
+  os_version: 2019
+  os_role: MS
+  stig_version: 2.4
+  skip_rule_type: ProcessMitigationRule
+  org_settings: 'D:\Downloads\WindowsServer-2019-MS-2.4.org.default.xml'
+
+dot_net_framework:
+  framework_version: 4
+  stig_version: 2.1
+
+internet_explorer:
+  browser_version: 11
+  stig_version: 2.1

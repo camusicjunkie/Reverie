@@ -1,0 +1,11 @@
+---
+tagging:
+  version: 0.3.0
+
+local_groups:
+  groups:
+    - group_name: Administrators
+      members:
+        - SG-SA-ServerAdmins
+        - SG-SA-ServerAdminServiceAccounts
+      credential: "{{ reverie.domain_admin_password }}"

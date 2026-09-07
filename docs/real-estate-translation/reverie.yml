@@ -1,0 +1,48 @@
+---
+# Throwaway translation of D:\PowerShell\Modules\DscPlayground\source.
+# Not a fixture, not maintained. See ../real-estate-translation.md.
+version: 1
+
+hosts:
+  path: hosts
+  layout: "{{ host.environment }}/{{ host.team }}/{{ host.name }}.yml"
+
+layers:
+  - teams/{{ host.team }}.yml
+  - environments/{{ host.environment }}.yml
+  - locations/{{ host.location }}.yml
+  - roles/{{ host.role }}.yml
+  - stigs/{{ host.os_stig }}.yml
+  - baselines/{{ host.baseline }}.yml
+
+defaults: global/
+
+inventory:
+  path: inventory/hosts.yml
+  # no `ansible_host:` — the real estate carries no address fact of any kind.
+  groups:
+    - fact: environment
+    - fact: team
+    - fact: role
+    - fact: location
+    - fact: os_stig
+      prefix: stig
+  # `baseline` deliberately absent: layered on, never targeted.
+
+# INVENTED VOCABULARY — see finding 1. No closed ticket fixes the strategy
+# names or even the name of this block. Written in the shape of the example in
+# Resolution semantics decisions (#8).
+lookup_options:
+  computer_settings:            { merge_hash: deep }
+  tagging:                      { merge_hash: deep }
+  windows_features:             { merge_baseType_array: unique }
+  files_and_folders:            { merge_hash: deep }
+  files_and_folders/items:      { merge_hash_array: unique_tuple, tuple_keys: [destination_path] }
+  local_groups:                 { merge_hash: deep }
+  local_groups/groups:          { merge_hash_array: deep_tuple, tuple_keys: [group_name] }
+  local_groups/groups/members:  { merge_baseType_array: append }
+
+secrets:
+  required:
+    - domain_admin_password
+    - domain_join_password

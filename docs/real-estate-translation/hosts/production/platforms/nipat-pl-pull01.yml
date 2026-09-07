@@ -1,0 +1,13 @@
+---
+environment: production
+team: platforms
+role: pull
+os_stig: server2019core
+location: patch
+baseline: server
+
+description: "{{ reverie.role }} in {{ reverie.environment }}"
+
+computer_settings:
+  name: "{{ inventory_hostname }}"
+  description: "{{ reverie.role }} in {{ reverie.environment }}"

@@ -1,0 +1,9 @@
+---
+windows_features:
+  - FS-DFS-Namespace
+
+local_groups:
+  groups:
+    - group_name: Administrators
+      members:
+        - SG-AA-DFSAdmins

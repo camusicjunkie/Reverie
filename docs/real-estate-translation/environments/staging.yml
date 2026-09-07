@@ -1,0 +1,5 @@
+---
+files_and_folders:
+  items:
+    - destination_path: 'C:\Test\staging-Environment'
+      type: directory

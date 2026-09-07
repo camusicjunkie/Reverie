@@ -1,0 +1,3 @@
+---
+windows_features:
+  - FS-DFS-Namespace

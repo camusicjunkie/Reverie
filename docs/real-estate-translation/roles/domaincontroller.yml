@@ -1,0 +1,10 @@
+---
+adds_domain_controller:
+  domain_name: "{{ reverie.domain_fqdn }}"
+  credential: "{{ reverie.domain_join_password }}"
+  safe_mode_administrator_password: "{{ reverie.domain_join_password }}"
+  database_path: C:\Windows\NTDS
+  log_path: C:\Windows\Logs
+  sysvol_path: C:\Windows\SYSVOL
+  site_name: Default-First-Site-Name
+  is_global_catalog: true
