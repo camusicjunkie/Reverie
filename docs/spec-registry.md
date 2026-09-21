@@ -9,9 +9,9 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | id | fields | implemented |
 | --- | --- | --- |
 | `configure.ambiguous_specificity` | file, key_path | no |
-| `configure.chain_template_illegal_expression` | file, line | no |
-| `configure.chain_template_nested_reference` | file, line | no |
-| `configure.chain_template_unknown_namespace` | file, line | no |
+| `configure.chain_template_illegal_expression` | file, line | yes |
+| `configure.chain_template_nested_reference` | file, line | yes |
+| `configure.chain_template_unknown_namespace` | file, line | yes |
 | `configure.malformed_chain_entry` | file, entry | yes |
 | `configure.malformed_defaults` | file, defaults | yes |
 | `configure.malformed_layout` | file, layout | yes |
@@ -37,7 +37,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `enumerate.address_escapes_root` | host, pattern | no |
 | `enumerate.group_host_name_collision` | -- | no |
 | `enumerate.group_name_collision` | -- | no |
-| `enumerate.host_layout_violation` | host | no |
+| `enumerate.host_layout_violation` | host | yes |
 | `enumerate.host_walks_no_layers` | host | no |
 | `enumerate.illegal_fact_value` | host, key_path | no |
 | `enumerate.illegal_group_name` | host, fact, value | no |

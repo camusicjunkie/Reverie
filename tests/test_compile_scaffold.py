@@ -258,6 +258,21 @@ def test_malformed_chain_entry_is_a_configure_error(fixture_dir):
     assert_diagnostic(diagnostics, "configure.malformed_chain_entry", file=str(source / "reverie.yml"), entry=123)
 
 
+def test_malformed_chain_entry_with_non_string_address_is_a_configure_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text(
+        'layout: ""\nchain: [{address: 123}]\ndefaults: defaults/common.yml\n',
+        encoding="utf-8",
+        newline="",
+    )
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "configure.malformed_chain_entry", file=str(source / "reverie.yml"), entry={"address": 123})
+
+
 def test_malformed_defaults_is_a_configure_error(fixture_dir):
     source = fixture_dir("minimal")
     (source / "reverie.yml").write_text('layout: ""\nchain: []\ndefaults: 123\n', encoding="utf-8", newline="")

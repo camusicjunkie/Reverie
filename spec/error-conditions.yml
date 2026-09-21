@@ -97,15 +97,15 @@
 - id: configure.chain_template_illegal_expression
   phase: configure
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: configure.chain_template_nested_reference
   phase: configure
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: configure.chain_template_unknown_namespace
   phase: configure
   fields: [file, line]
-  implemented: false
+  implemented: true
 
 # --- load --------------------------------------------------------------
 
@@ -179,7 +179,7 @@
 - id: enumerate.host_layout_violation
   phase: enumerate
   fields: [host]
-  implemented: false
+  implemented: true
 - id: enumerate.host_walks_no_layers
   phase: enumerate
   fields: [host]

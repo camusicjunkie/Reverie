@@ -5,10 +5,10 @@ Chain templating and directory-layout validation are logic over data the
 top-level scalars, and `reverie.yml` from `configure`) -- enumerate never
 opens a layer file itself.
 
-Note: full `layout:` template validation (a host's directory position
-checked against the declared template) is out of scope for this ticket
-and lands with issue #32; here, `hosts/` is simply scanned recursively and
-a host's identity is its filename stem, per CONTEXT.md.
+`hosts/` is scanned recursively; a host's identity is its filename stem,
+per CONTEXT.md. A host's directory position (relative to `hosts/`) is
+validated against `layout:` rendered from that host's own facts -- never
+inferred from the position itself.
 """
 
 from __future__ import annotations
@@ -88,6 +88,26 @@ def enumerate_hosts(config: SourceConfig) -> list[HostPlan]:
     for host_file in host_files:
         name = host_file.stem
         host_facts = _load_host_facts(host_file)
+
+        if config.layout:
+            try:
+                rendered_layout = _render_chain_address(config.layout, host_facts)
+            except _MissingFact as exc:
+                collector.add(
+                    "enumerate.missing_host_fact",
+                    host=name,
+                    chain_entry=config.layout,
+                    fact=exc.fact,
+                )
+                rendered_layout = None
+        else:
+            rendered_layout = ""
+
+        if rendered_layout is not None:
+            actual_rel = host_file.parent.relative_to(hosts_dir)
+            actual_position = "" if str(actual_rel) == "." else actual_rel.as_posix()
+            if actual_position != rendered_layout:
+                collector.add("enumerate.host_layout_violation", host=name)
 
         layers: list[LayerRef] = []
 
