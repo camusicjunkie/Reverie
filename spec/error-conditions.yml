@@ -1,0 +1,280 @@
+# The closed, authoritative list of every <phase>.<condition> diagnostic id
+# Reverie's compiler can raise.
+#
+# Source of truth: the design-spec tracker (github.com/camusicjunkie/Reverie
+# issues #2-#28), walked in order to its FINAL settled form -- not a
+# transcription of every intermediate rename. Three ids here
+# (configure.malformed_reverie_yml, configure.malformed_chain_entry,
+# configure.malformed_defaults) have no tracker equivalent: they were
+# necessary additions the #30 scaffold made that the design tickets never
+# named, in the same spirit as the "closed-list gaps" sweeps (#25, #27).
+#
+# `implemented: true` means the condition has real code raising it and a
+# fixture case exercising it today; the mechanical coverage check in
+# tests/conftest.py (assert_diagnostic / pytest_sessionfinish) only holds
+# implemented ids to the "every registry id needs a fixture" rule, so the
+# many conditions later tickets (#32-#38) will implement don't fail today's
+# build.
+#
+# `fields` lists every key besides `id`/`phase` the diagnostic carries.
+# Prose docs are generated from this file: see scripts/generate_spec_docs.py
+# and the checked-in docs/spec-registry.md it produces.
+
+# --- configure -------------------------------------------------------------
+
+- id: configure.missing_source_argument
+  phase: configure
+  fields: []
+  implemented: true
+- id: configure.reverie_yml_not_found
+  phase: configure
+  fields: [file]
+  implemented: true
+- id: configure.malformed_reverie_yml
+  phase: configure
+  fields: [file, detail]
+  implemented: true
+- id: configure.malformed_layout
+  phase: configure
+  fields: [file, layout]
+  implemented: true
+- id: configure.malformed_chain_entry
+  phase: configure
+  fields: [file, entry]
+  implemented: true
+- id: configure.malformed_defaults
+  phase: configure
+  fields: [file, defaults]
+  implemented: true
+- id: configure.missing_host_argument
+  phase: configure
+  fields: []
+  implemented: false
+- id: configure.unknown_strategy
+  phase: configure
+  fields: [file, key_path, strategy]
+  implemented: false
+- id: configure.missing_tuple_keys
+  phase: configure
+  fields: [file, key_path]
+  implemented: false
+- id: configure.ambiguous_specificity
+  phase: configure
+  fields: [file, key_path]
+  implemented: false
+- id: configure.no_secret_backend
+  phase: configure
+  fields: []
+  implemented: false
+- id: configure.missing_strategy
+  phase: configure
+  fields: [file, key_path]
+  implemented: false
+- id: configure.unknown_entry_key
+  phase: configure
+  fields: [file, key]
+  implemented: false
+- id: configure.unexpected_tuple_keys
+  phase: configure
+  fields: [file, key_path]
+  implemented: false
+- id: configure.missing_defaults_directory
+  phase: configure
+  fields: [file]
+  implemented: false
+- id: configure.rsop_output_in_estate
+  phase: configure
+  fields: [path, tree]
+  implemented: false
+- id: configure.rsop_output_parent_missing
+  phase: configure
+  fields: [path]
+  implemented: false
+- id: configure.unexpected_output_flag
+  phase: configure
+  fields: []
+  implemented: false
+- id: configure.chain_template_illegal_expression
+  phase: configure
+  fields: [file, line]
+  implemented: false
+- id: configure.chain_template_nested_reference
+  phase: configure
+  fields: [file, line]
+  implemented: false
+- id: configure.chain_template_unknown_namespace
+  phase: configure
+  fields: [file, line]
+  implemented: false
+
+# --- load --------------------------------------------------------------
+
+- id: load.invalid_yaml
+  phase: load
+  fields: [file, line, detail]
+  implemented: true
+- id: load.unknown_tag
+  phase: load
+  fields: [file, line, tag]
+  implemented: true
+- id: load.value_out_of_domain
+  phase: load
+  fields: [file, line, kind]
+  implemented: true
+- id: load.document_not_a_map
+  phase: load
+  fields: [file, line]
+  implemented: true
+- id: load.forbidden_alias
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.duplicate_key
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.non_string_key
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.malformed_deferred_template
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.empty_secret_address
+  phase: load
+  fields: []
+  implemented: false
+- id: load.key_contains_separator
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.multiple_documents
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.reserved_name_key
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.illegal_fact_name
+  phase: load
+  fields: [file, line]
+  implemented: false
+- id: load.duplicate_host_name
+  phase: load
+  fields: []
+  implemented: false
+
+# --- enumerate -----------------------------------------------------------
+
+- id: enumerate.missing_host_fact
+  phase: enumerate
+  fields: [host, chain_entry, fact]
+  implemented: true
+- id: enumerate.missing_layer_file
+  phase: enumerate
+  fields: [host, chain_entry, rendered_address]
+  implemented: true
+- id: enumerate.host_layout_violation
+  phase: enumerate
+  fields: [host]
+  implemented: false
+- id: enumerate.host_walks_no_layers
+  phase: enumerate
+  fields: [host]
+  implemented: false
+- id: enumerate.illegal_group_name
+  phase: enumerate
+  fields: [host, fact, value]
+  implemented: false
+- id: enumerate.group_name_collision
+  phase: enumerate
+  fields: []
+  implemented: false
+- id: enumerate.ungrounded_group_fact
+  phase: enumerate
+  fields: []
+  implemented: false
+- id: enumerate.non_scalar_fact
+  phase: enumerate
+  fields: [host, key_path]
+  implemented: false
+- id: enumerate.illegal_fact_value
+  phase: enumerate
+  fields: [host, key_path]
+  implemented: false
+- id: enumerate.address_escapes_root
+  phase: enumerate
+  fields: [host, pattern]
+  implemented: false
+- id: enumerate.rsop_host_not_found
+  phase: enumerate
+  fields: []
+  implemented: false
+- id: enumerate.group_host_name_collision
+  phase: enumerate
+  fields: []
+  implemented: false
+- id: enumerate.missing_ansible_host_fact
+  phase: enumerate
+  fields: []
+  implemented: false
+
+# --- validate --------------------------------------------------------------
+
+- id: validate.pattern_matches_nothing
+  phase: validate
+  fields: [pattern]
+  implemented: false
+- id: validate.secrets_pattern_matches_nothing
+  phase: validate
+  fields: [pattern]
+  implemented: false
+- id: validate.remove_matches_nothing
+  phase: validate
+  fields: []
+  implemented: false
+- id: validate.secret_is_plaintext
+  phase: validate
+  fields: [layer]
+  implemented: false
+- id: validate.strategy_never_applies
+  phase: validate
+  fields: [key_path]
+  implemented: false
+- id: validate.non_map_in_tuple_merge
+  phase: validate
+  fields: []
+  implemented: false
+- id: validate.missing_tuple_key
+  phase: validate
+  fields: []
+  implemented: false
+- id: validate.secret_not_comparable
+  phase: validate
+  fields: [key_path]
+  implemented: false
+- id: validate.host_has_no_keys
+  phase: validate
+  fields: [host]
+  implemented: false
+- id: validate.duplicate_in_layer
+  phase: validate
+  fields: [file, line]
+  implemented: false
+- id: validate.duplicate_floor_key
+  phase: validate
+  fields: [file, line]
+  implemented: false
+
+# --- emit --------------------------------------------------------------
+
+- id: emit.foreign_file
+  phase: emit
+  fields: [file]
+  implemented: true
+- id: emit.host_set_mismatch
+  phase: emit
+  fields: []
+  implemented: false

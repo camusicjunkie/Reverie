@@ -46,7 +46,11 @@ def configure(source_arg: str | None) -> SourceConfig:
         collector.raise_if_any()
 
     if not isinstance(raw, dict):
-        collector.add("configure.malformed_reverie_yml", file=str(reverie_yml))
+        collector.add(
+            "configure.malformed_reverie_yml",
+            file=str(reverie_yml),
+            detail="expected a mapping at the document root",
+        )
         collector.raise_if_any()
 
     layout = raw.get("layout", "")

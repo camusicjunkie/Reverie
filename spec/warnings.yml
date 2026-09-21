@@ -1,0 +1,9 @@
+# Non-fatal diagnostics: same <phase>.<condition> id shape as
+# spec/error-conditions.yml, but a compile that raises one still succeeds.
+# Kept in a separate closed list because they are not "error conditions"
+# and don't gate the compile.
+
+- id: enumerate.undeclared_chain_fact
+  phase: enumerate
+  fields: []
+  implemented: false

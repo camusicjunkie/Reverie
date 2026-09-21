@@ -10,7 +10,7 @@ import json
 
 import yaml
 
-from tests.conftest import run_reverie
+from tests.conftest import assert_diagnostic, run_reverie
 
 
 def test_emission_mechanics_are_pinned(fixture_dir):
@@ -61,7 +61,7 @@ def test_binary_value_is_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "load.value_outside_domain" and d["kind"] == "binary" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="binary")
 
 
 def test_set_value_is_rejected(fixture_dir):
@@ -74,7 +74,7 @@ def test_set_value_is_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "load.value_outside_domain" and d["kind"] == "set" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="set")
 
 
 def test_anchors_and_aliases_are_rejected(fixture_dir):
@@ -87,7 +87,7 @@ def test_anchors_and_aliases_are_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "load.value_outside_domain" and d["kind"] == "anchor_or_alias" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="anchor_or_alias")
 
 
 def test_merge_key_via_alias_is_rejected(fixture_dir):
@@ -101,7 +101,7 @@ def test_merge_key_via_alias_is_rejected(fixture_dir):
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
     # The alias (`*base`) is itself forbidden, ahead of the merge key check.
-    assert any(d["id"] == "load.value_outside_domain" and d["kind"] == "anchor_or_alias" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="anchor_or_alias")
 
 
 def test_merge_key_via_literal_mapping_is_rejected(fixture_dir):
@@ -116,7 +116,7 @@ def test_merge_key_via_literal_mapping_is_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "load.value_outside_domain" and d["kind"] == "merge_key" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="merge_key")
 
 
 def test_unknown_tag_is_rejected(fixture_dir):
@@ -127,4 +127,4 @@ def test_unknown_tag_is_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "load.unknown_tag" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.unknown_tag", tag="!unknown_tag")

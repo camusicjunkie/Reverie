@@ -11,7 +11,7 @@ import json
 
 import yaml
 
-from tests.conftest import run_reverie
+from tests.conftest import assert_diagnostic, run_reverie
 
 
 def test_minimal_compile_produces_artifact_and_inventory(fixture_dir):
@@ -67,7 +67,7 @@ def test_timestamp_value_is_a_load_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "load.value_outside_domain" and d["kind"] == "timestamp" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="timestamp")
     assert not (source / "host_vars").exists()
 
 
@@ -79,7 +79,7 @@ def test_nan_value_is_a_load_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "load.value_outside_domain" and d["kind"] == "nan_or_infinity" for d in diagnostics)
+    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="nan_or_infinity")
 
 
 def test_unmanaged_file_in_output_directory_is_error_not_deleted(fixture_dir):
@@ -93,7 +93,7 @@ def test_unmanaged_file_in_output_directory_is_error_not_deleted(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "emit.unmanaged_file_in_owned_directory" for d in diagnostics)
+    assert_diagnostic(diagnostics, "emit.foreign_file", file=str(hand_authored))
     assert hand_authored.read_text(encoding="utf-8") == "hand-authored content\n"
     assert not (source / "inventory").exists()
 
@@ -109,7 +109,7 @@ def test_directory_in_owned_directory_is_error_not_ignored(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "emit.unmanaged_file_in_owned_directory" for d in diagnostics)
+    assert_diagnostic(diagnostics, "emit.foreign_file", file=str(stray_dir))
     assert stray_dir.is_dir()
 
 
@@ -126,10 +126,51 @@ def test_missing_chain_fact_is_distinct_from_missing_layer_file(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(
-        d["id"] == "enumerate.missing_chain_fact" and d["fact"] == "team" for d in diagnostics
-    )
+    assert_diagnostic(diagnostics, "enumerate.missing_host_fact", fact="team")
     assert not any(d["id"] == "enumerate.missing_layer_file" for d in diagnostics)
+
+
+def test_missing_layer_file_is_an_enumerate_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text(
+        'layout: ""\nchain: ["teams/none.yml"]\ndefaults: defaults/common.yml\n',
+        encoding="utf-8",
+        newline="",
+    )
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(
+        diagnostics,
+        "enumerate.missing_layer_file",
+        host="host1",
+        chain_entry="teams/none.yml",
+        rendered_address="teams/none.yml",
+    )
+
+
+def test_malformed_yaml_syntax_in_a_layer_is_a_load_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "defaults" / "common.yml").write_text("site: [\n", encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "load.invalid_yaml", file=str(source / "defaults" / "common.yml"))
+
+
+def test_non_map_layer_document_is_a_load_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "defaults" / "common.yml").write_text("- a\n- b\n", encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "load.document_not_a_map", file=str(source / "defaults" / "common.yml"), line=None)
 
 
 def test_recompile_after_fixing_failure_matches_fresh_compile(fixture_dir):
@@ -154,7 +195,7 @@ def test_missing_source_argument_is_a_configure_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "configure.missing_source_argument" for d in diagnostics)
+    assert_diagnostic(diagnostics, "configure.missing_source_argument")
 
 
 def test_missing_reverie_yml_is_a_configure_error(tmp_path):
@@ -165,4 +206,64 @@ def test_missing_reverie_yml_is_a_configure_error(tmp_path):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert any(d["id"] == "configure.reverie_yml_not_found" for d in diagnostics)
+    assert_diagnostic(diagnostics, "configure.reverie_yml_not_found", file=str(empty_dir / "reverie.yml"))
+
+
+def test_malformed_yaml_syntax_in_reverie_yml_is_a_configure_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text("layout: [\n", encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "configure.malformed_reverie_yml", file=str(source / "reverie.yml"))
+
+
+def test_non_map_reverie_yml_is_a_configure_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text("- not\n- a\n- map\n", encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(
+        diagnostics,
+        "configure.malformed_reverie_yml",
+        file=str(source / "reverie.yml"),
+        detail="expected a mapping at the document root",
+    )
+
+
+def test_malformed_layout_is_a_configure_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text('layout: "/leading-slash"\nchain: []\ndefaults: defaults/common.yml\n', encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "configure.malformed_layout", file=str(source / "reverie.yml"), layout="/leading-slash")
+
+
+def test_malformed_chain_entry_is_a_configure_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text('layout: ""\nchain: [123]\ndefaults: defaults/common.yml\n', encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "configure.malformed_chain_entry", file=str(source / "reverie.yml"), entry=123)
+
+
+def test_malformed_defaults_is_a_configure_error(fixture_dir):
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text('layout: ""\nchain: []\ndefaults: 123\n', encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "configure.malformed_defaults", file=str(source / "reverie.yml"), defaults=123)

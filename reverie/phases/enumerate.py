@@ -109,7 +109,7 @@ def enumerate_hosts(config: SourceConfig) -> list[HostPlan]:
             except _MissingFact as exc:
                 if not entry.optional:
                     collector.add(
-                        "enumerate.missing_chain_fact",
+                        "enumerate.missing_host_fact",
                         host=name,
                         chain_entry=entry.address,
                         fact=exc.fact,

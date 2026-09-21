@@ -77,13 +77,13 @@ def _plan_owned_directory(directory: Path, planned: dict[str, bytes], collector:
             # A directory, symlink, or anything else can't carry the
             # generated header, so it's always unmanaged.
             collector.add(
-                "emit.unmanaged_file_in_owned_directory",
+                "emit.foreign_file",
                 file=str(existing),
             )
             continue
         if not has_generated_header(existing):
             collector.add(
-                "emit.unmanaged_file_in_owned_directory",
+                "emit.foreign_file",
                 file=str(existing),
             )
             continue

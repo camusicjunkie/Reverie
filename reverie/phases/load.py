@@ -34,7 +34,7 @@ def load_layers(plans: list[HostPlan]) -> list[LoadedHost]:
             data = load_closed_domain(text)
         except ValueDomainError as exc:
             collector.add(
-                "load.value_outside_domain",
+                "load.value_out_of_domain",
                 file=str(layer.path),
                 line=exc.line,
                 kind=exc.kind,
@@ -51,7 +51,7 @@ def load_layers(plans: list[HostPlan]) -> list[LoadedHost]:
         except yaml.YAMLError as exc:
             mark = getattr(exc, "problem_mark", None)
             collector.add(
-                "load.malformed_yaml",
+                "load.invalid_yaml",
                 file=str(layer.path),
                 line=(mark.line + 1) if mark else None,
                 detail=str(exc),
@@ -62,8 +62,9 @@ def load_layers(plans: list[HostPlan]) -> list[LoadedHost]:
                 data = {}
             elif not isinstance(data, dict):
                 collector.add(
-                    "load.layer_must_be_a_map",
+                    "load.document_not_a_map",
                     file=str(layer.path),
+                    line=None,
                 )
                 data = None
 

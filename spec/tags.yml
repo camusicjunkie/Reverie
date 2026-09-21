@@ -1,0 +1,12 @@
+# The closed tag vocabulary (CONTEXT.md "!remove"/"!vault"/"!secret";
+# design tracker #14).
+
+- id: "!remove"
+  lifecycle: consumed_during_merge
+  description: Marks removal of a key, scalar list element, or tuple-matched list-of-maps element. Never emitted in output.
+- id: "!vault"
+  lifecycle: passthrough
+  description: Marks an opaque, ansible-vault-encrypted scalar. Never inspected, interpolated, or compared -- copied into the artifact verbatim.
+- id: "!secret"
+  lifecycle: consumed_at_emit
+  description: Marks a structured reference to an address in the external secret-store backend. Translated to the backend's native form at emit.

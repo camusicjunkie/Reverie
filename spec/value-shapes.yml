@@ -1,0 +1,7 @@
+# The closed set of shapes a merge strategy binds to (design tracker #24,
+# renamed from "base-type array").
+
+- scalar
+- map
+- plain_list
+- list_of_maps

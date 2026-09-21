@@ -1,0 +1,25 @@
+# The closed set of seven merge strategies (CONTEXT.md "Strategy"; design
+# tracker #20 "The merge declaration language"). A strategy is total on its
+# own shape (spec/value-shapes.yml) and most-specific-wins on every other.
+
+- id: first
+  shape: scalar
+  description: Most-specific layer to define the key wins outright.
+- id: shallow
+  shape: map
+  description: Shallow-merges maps one level deep; most-specific wins per key.
+- id: deep
+  shape: map
+  description: Recursively merges maps at every depth; most-specific wins per leaf.
+- id: append
+  shape: plain_list
+  description: Concatenates lists, most-general first.
+- id: unique
+  shape: plain_list
+  description: Concatenates lists and removes duplicate scalar elements.
+- id: unique_tuple
+  shape: list_of_maps
+  description: Concatenates lists of maps, de-duplicating by declared tuple_keys.
+- id: deep_tuple
+  shape: list_of_maps
+  description: Deep-merges list-of-map elements matched by declared tuple_keys.

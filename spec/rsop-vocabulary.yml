@@ -1,0 +1,7 @@
+# Other closed RSOP vocabularies design tracker #17 named, distinct from
+# the per-key contributor record (spec/contributor-outcomes.yml).
+
+annotations:
+  - rsop.type_disagreement
+redaction_reasons:
+  - vault
