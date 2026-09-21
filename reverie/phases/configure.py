@@ -15,6 +15,77 @@ PHASE = "configure"
 _TEMPLATE_BLOCK = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
+# The closed set of seven merge strategies (CONTEXT.md "Strategy").
+_STRATEGIES = {"first", "shallow", "deep", "append", "unique", "unique_tuple", "deep_tuple"}
+
+
+def _tokenize(pattern: str) -> list[str]:
+    return pattern.split("/") if pattern else []
+
+
+def _consume(tokens: list[str], i: int) -> tuple[int, int, int, str | None]:
+    """One token's contribution when it accounts for one shared path segment.
+
+    Returns (next_index, literal_delta, star_delta, literal_value_or_None).
+    """
+
+    token = tokens[i]
+    if token == "**":
+        return i, 0, 0, None
+    if token == "*":
+        return i + 1, 0, 1, None
+    return i + 1, 1, 0, token
+
+
+def _patterns_tie(first: str, second: str) -> bool:
+    """Whether two distinct merge-policy patterns could tie in specificity
+    on some shared concrete key path.
+
+    Modeled as a joint automaton walking a hypothetical shared path one
+    segment at a time: each pattern's `**` may either absorb the segment
+    (staying put) or step aside without consuming one (an epsilon move),
+    while `*` and literal tokens always consume exactly one segment. This
+    searches the resulting state graph for a way to fully parse both
+    patterns ending with equal (literal, star) specificity scores -- the
+    same score keypath.specificity would compute for each, on the same
+    concrete path.
+    """
+
+    a = _tokenize(first)
+    b = _tokenize(second)
+    la, lb = len(a), len(b)
+
+    start = (0, 0, 0, 0, 0, 0)
+    seen = {start}
+    stack = [start]
+    while stack:
+        i, j, lit_a, star_a, lit_b, star_b = stack.pop()
+
+        if i == la and j == lb and lit_a == lit_b and star_a == star_b:
+            return True
+
+        if i < la and a[i] == "**":
+            nxt = (i + 1, j, lit_a, star_a, lit_b, star_b)
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+        if j < lb and b[j] == "**":
+            nxt = (i, j + 1, lit_a, star_a, lit_b, star_b)
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+
+        if i < la and j < lb:
+            ni, dla, dsa, tok_a = _consume(a, i)
+            nj, dlb, dsb, tok_b = _consume(b, j)
+            if tok_a is None or tok_b is None or tok_a == tok_b:
+                nxt = (ni, nj, lit_a + dla, star_a + dsa, lit_b + dlb, star_b + dsb)
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+
+    return False
+
 
 def _get_child_node(node: yaml.Node, key: str) -> yaml.Node | None:
     if not isinstance(node, yaml.MappingNode):
@@ -61,11 +132,18 @@ class ChainEntry:
 
 
 @dataclass(frozen=True)
+class MergePolicy:
+    pattern: str
+    strategy: str
+
+
+@dataclass(frozen=True)
 class SourceConfig:
     root: Path
     layout: str
     chain: list[ChainEntry]
     defaults: str | None
+    merge_policies: list[MergePolicy]
 
 
 def configure(source_arg: str | None) -> SourceConfig:
@@ -132,6 +210,31 @@ def configure(source_arg: str | None) -> SourceConfig:
         collector.add("configure.malformed_defaults", file=str(reverie_yml), defaults=defaults)
         defaults = None
 
+    merge_raw = raw.get("merge", {}) or {}
+    merge_policies: list[MergePolicy] = []
+    if isinstance(merge_raw, dict):
+        for pattern, entry in merge_raw.items():
+            if isinstance(entry, str):
+                strategy = entry
+            elif isinstance(entry, dict) and isinstance(entry.get("strategy"), str):
+                strategy = entry["strategy"]
+            else:
+                collector.add("configure.missing_strategy", file=str(reverie_yml), key_path=pattern)
+                continue
+
+            if strategy not in _STRATEGIES:
+                collector.add(
+                    "configure.unknown_strategy", file=str(reverie_yml), key_path=pattern, strategy=strategy
+                )
+                continue
+
+            merge_policies.append(MergePolicy(pattern=pattern, strategy=strategy))
+
+    for index, first in enumerate(merge_policies):
+        for second in merge_policies[index + 1 :]:
+            if _patterns_tie(first.pattern, second.pattern):
+                collector.add("configure.ambiguous_specificity", file=str(reverie_yml), key_path=first.pattern)
+
     collector.raise_if_any()
 
-    return SourceConfig(root=root, layout=layout, chain=chain, defaults=defaults)
+    return SourceConfig(root=root, layout=layout, chain=chain, defaults=defaults, merge_policies=merge_policies)

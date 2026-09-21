@@ -1,0 +1,8 @@
+layout: "{{ host.dc }}"
+chain:
+  - "dcs/{{ host.dc }}.yml"
+  - "roles/{{ host.role }}.yml"
+defaults: defaults/common.yml
+merge:
+  settings: shallow
+  nested: deep

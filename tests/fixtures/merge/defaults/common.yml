@@ -1,0 +1,9 @@
+env: prod
+settings:
+  region: emea
+  timeout: 30
+nested:
+  a:
+    x: 1
+  b: 2
+port: 80

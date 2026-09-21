@@ -8,7 +8,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 
 | id | fields | implemented |
 | --- | --- | --- |
-| `configure.ambiguous_specificity` | file, key_path | no |
+| `configure.ambiguous_specificity` | file, key_path | yes |
 | `configure.chain_template_illegal_expression` | file, line | yes |
 | `configure.chain_template_nested_reference` | file, line | yes |
 | `configure.chain_template_unknown_namespace` | file, line | yes |
@@ -19,7 +19,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.missing_defaults_directory` | file | no |
 | `configure.missing_host_argument` | -- | no |
 | `configure.missing_source_argument` | -- | yes |
-| `configure.missing_strategy` | file, key_path | no |
+| `configure.missing_strategy` | file, key_path | yes |
 | `configure.missing_tuple_keys` | file, key_path | no |
 | `configure.no_secret_backend` | -- | no |
 | `configure.reverie_yml_not_found` | file | yes |
@@ -28,7 +28,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.unexpected_output_flag` | -- | no |
 | `configure.unexpected_tuple_keys` | file, key_path | no |
 | `configure.unknown_entry_key` | file, key | no |
-| `configure.unknown_strategy` | file, key_path, strategy | no |
+| `configure.unknown_strategy` | file, key_path, strategy | yes |
 
 ## enumerate
 
@@ -76,12 +76,12 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `validate.host_has_no_keys` | host | no |
 | `validate.missing_tuple_key` | -- | no |
 | `validate.non_map_in_tuple_merge` | -- | no |
-| `validate.pattern_matches_nothing` | pattern | no |
-| `validate.remove_matches_nothing` | -- | no |
+| `validate.pattern_matches_nothing` | pattern | yes |
+| `validate.remove_matches_nothing` | -- | yes |
 | `validate.secret_is_plaintext` | layer | no |
 | `validate.secret_not_comparable` | key_path | no |
 | `validate.secrets_pattern_matches_nothing` | pattern | no |
-| `validate.strategy_never_applies` | key_path | no |
+| `validate.strategy_never_applies` | key_path | yes |
 
 ## resolve
 

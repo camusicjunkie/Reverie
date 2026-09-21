@@ -53,7 +53,7 @@
 - id: configure.unknown_strategy
   phase: configure
   fields: [file, key_path, strategy]
-  implemented: false
+  implemented: true
 - id: configure.missing_tuple_keys
   phase: configure
   fields: [file, key_path]
@@ -61,7 +61,7 @@
 - id: configure.ambiguous_specificity
   phase: configure
   fields: [file, key_path]
-  implemented: false
+  implemented: true
 - id: configure.no_secret_backend
   phase: configure
   fields: []
@@ -69,7 +69,7 @@
 - id: configure.missing_strategy
   phase: configure
   fields: [file, key_path]
-  implemented: false
+  implemented: true
 - id: configure.unknown_entry_key
   phase: configure
   fields: [file, key]
@@ -226,7 +226,7 @@
 - id: validate.pattern_matches_nothing
   phase: validate
   fields: [pattern]
-  implemented: false
+  implemented: true
 - id: validate.secrets_pattern_matches_nothing
   phase: validate
   fields: [pattern]
@@ -234,7 +234,7 @@
 - id: validate.remove_matches_nothing
   phase: validate
   fields: []
-  implemented: false
+  implemented: true
 - id: validate.secret_is_plaintext
   phase: validate
   fields: [layer]
@@ -242,7 +242,7 @@
 - id: validate.strategy_never_applies
   phase: validate
   fields: [key_path]
-  implemented: false
+  implemented: true
 - id: validate.non_map_in_tuple_merge
   phase: validate
   fields: []

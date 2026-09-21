@@ -1,0 +1,5 @@
+settings:
+  region: dublin-region
+nested:
+  a:
+    y: 2

@@ -52,6 +52,24 @@ class UnknownTagError(Exception):
         super().__init__(tag)
 
 
+REMOVE_TAG = "!remove"
+
+
+class Remove:
+    """Sentinel for a `!remove`-tagged value (CONTEXT.md "!remove").
+
+    Holds no position and carries no content -- what it was tagged onto in
+    the source is irrelevant, only that it was tagged at all.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "!remove"
+
+
+REMOVE = Remove()
+
 _ALLOWED_TAGS = {
     "tag:yaml.org,2002:map",
     "tag:yaml.org,2002:seq",
@@ -97,8 +115,19 @@ def _construct_float(loader: yaml.SafeLoader, node: yaml.ScalarNode):
 _ClosedLoader.add_constructor("tag:yaml.org,2002:float", _construct_float)
 
 
+def _construct_remove(loader: yaml.SafeLoader, node: yaml.Node) -> Remove:
+    return REMOVE
+
+
+_ClosedLoader.add_constructor(REMOVE_TAG, _construct_remove)
+
+
 def _check_tags(node: yaml.Node) -> None:
     """Walk the composed node tree, rejecting any tag outside the closed domain."""
+
+    if node.tag == REMOVE_TAG:
+        # Holds no position -- its underlying content is never inspected.
+        return
 
     if node.tag in _FORBIDDEN_TAG_KINDS:
         raise ValueDomainError(_FORBIDDEN_TAG_KINDS[node.tag], node.start_mark.line + 1)

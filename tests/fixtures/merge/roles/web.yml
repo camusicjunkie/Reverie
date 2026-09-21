@@ -1,0 +1,7 @@
+settings:
+  timeout: 60
+nested:
+  a:
+    x: 99
+  c: 3
+port: 8080
