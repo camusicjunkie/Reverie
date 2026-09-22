@@ -1,0 +1,8 @@
+layout: "{{ host.dc }}"
+chain:
+  - "dcs/{{ host.dc }}.yml"
+  - "roles/{{ host.role }}.yml"
+merge:
+  groups:
+    strategy: unique_tuple
+    tuple_keys: [name]

@@ -23,7 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from reverie import keypath, list_merge
+from reverie import list_merge, merge_plan
 from reverie.phases.configure import MergePolicy
 from reverie.phases.load import LoadedHost
 from reverie.yaml_io import Remove
@@ -50,33 +50,20 @@ def _merge_key(
 ) -> Any:
     """Merge one key path's per-layer values (general to specific)."""
 
-    effective: list[Any] = []
-    for value in contributions:
-        if isinstance(value, Remove):
-            effective = []
-        else:
-            effective.append(value)
+    decision = merge_plan.bind(key_path, contributions, merge_policies, ambient_strategy)
 
-    if not effective:
+    if decision.shape == merge_plan.ABSENT:
         return _ABSENT
 
-    policy = keypath.winner(merge_policies, key_path)
-    strategy = policy.strategy if policy else ambient_strategy
+    if decision.applied and decision.strategy in merge_plan.MAP_STRATEGIES:
+        return _merge_maps(key_path, decision.effective, merge_policies, decision.children_ambient)
 
-    if strategy in ("shallow", "deep"):
-        if all(isinstance(v, dict) for v in effective):
-            child_ambient = "deep" if strategy == "deep" else "first"
-            return _merge_maps(key_path, effective, merge_policies, child_ambient)
-        return effective[-1]  # shape mismatch -> most-specific-wins, like `first`
+    if decision.applied and decision.strategy in list_merge.LIST_STRATEGIES:
+        tuple_keys = decision.policy.tuple_keys if decision.policy else None
+        return merge_lists(key_path, decision.effective, decision.strategy, tuple_keys, merge_policies)
 
-    if strategy in list_merge.LIST_STRATEGIES:
-        if all(isinstance(v, list) for v in effective):
-            tuple_keys = policy.tuple_keys if policy else None
-            return merge_lists(key_path, effective, strategy, tuple_keys, merge_policies)
-        return effective[-1]  # shape mismatch -> most-specific-wins
-
-    # `first`: most-specific-wins.
-    return effective[-1]
+    # `first`, or a shape mismatch falling back to it -> most-specific-wins.
+    return decision.effective[-1]
 
 
 def merge_lists(

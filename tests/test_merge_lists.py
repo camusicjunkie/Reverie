@@ -189,6 +189,22 @@ def test_list_strategy_never_applying_is_a_validate_error(fixture_dir):
     assert_diagnostic(diagnostics, "validate.strategy_never_applies", key_path="dc")
 
 
+def test_non_map_tuple_merge_on_one_host_is_not_masked_by_another_hosts_map_shape(fixture_dir):
+    # Issue #40: `groups: unique_tuple` genuinely list-of-maps-shapes on
+    # host1 (dublin) but only ever meets a plain scalar list on host2
+    # (paris). Flattened across hosts, paris's plain list used to be
+    # invisible -- dublin's map-shaped win alone satisfied every
+    # accumulator, so no diagnostic fired at all.
+    source = fixture_dir("merge_lists_multi_host")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "validate.non_map_in_tuple_merge")
+    assert not any(d["id"] == "validate.strategy_never_applies" for d in diagnostics), diagnostics
+
+
 def test_shape_classification_any_map_present_makes_list_of_maps(fixture_dir):
     source = fixture_dir("merge_lists")
     (source / "defaults" / "common.yml").write_text(

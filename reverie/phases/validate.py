@@ -24,7 +24,7 @@ could go wrong with merge data is caught here first.
 
 from __future__ import annotations
 
-from reverie import keypath, list_merge
+from reverie import keypath, list_merge, merge_plan
 from reverie.errors import DiagnosticCollector
 from reverie.phases.configure import MergePolicy
 from reverie.phases.load import LoadedHost
@@ -32,7 +32,7 @@ from reverie.yaml_io import Remove, Secret, Vault
 
 PHASE = "validate"
 
-_MAP_STRATEGIES = ("shallow", "deep")
+_MAP_STRATEGIES = merge_plan.MAP_STRATEGIES
 
 
 def _walk(data: dict, prefix: str = "") -> list[tuple[str, object]]:
@@ -119,6 +119,30 @@ def _check_secrets(host: LoadedHost, collector: DiagnosticCollector, secrets: li
                 collector.add("validate.secret_is_plaintext", layer=str(layer.path))
 
 
+def _decisions_for_host(host: LoadedHost, merge_policies: list[MergePolicy]) -> list[merge_plan.BindingDecision]:
+    """Every binding decision `resolve` would compute while merging this
+    host, in the same order (same ambient-strategy inheritance, same
+    recursion into map-shaped, strategy-applied children only) -- so a
+    policy shadowed under an ancestor's `first` (never reached during
+    resolve) is invisible here too, and a mis-shape on this host alone
+    can't be masked by another host's correctly-shaped contribution."""
+
+    decisions: list[merge_plan.BindingDecision] = []
+
+    def walk(key_path: str, dicts: list[dict], ambient: str) -> None:
+        keys = dict.fromkeys(key for d in dicts for key in d)
+        for key in keys:
+            child_path = f"{key_path}/{key}" if key_path else key
+            contributions = [d[key] for d in dicts if key in d]
+            decision = merge_plan.bind(child_path, contributions, merge_policies, ambient)
+            decisions.append(decision)
+            if decision.applied and decision.strategy in _MAP_STRATEGIES:
+                walk(child_path, decision.effective, decision.children_ambient)
+
+    walk("", [layer_data for _layer, layer_data in host.layers], "first")
+    return decisions
+
+
 def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], secrets: list[str] | None = None) -> list[LoadedHost]:
     collector = DiagnosticCollector(PHASE)
     secrets = secrets or []
@@ -135,10 +159,6 @@ def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], 
                 values_by_path.setdefault(path, []).append(value)
 
     matched_patterns: set[str] = set()
-    map_shaped_wins: set[str] = set()
-    plain_list_wins: set[str] = set()
-    list_of_maps_wins: set[str] = set()
-    non_map_tuple_patterns: set[str] = set()
     vault_comparison_patterns: set[str] = set()
 
     for path, values in values_by_path.items():
@@ -146,20 +166,8 @@ def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], 
             if keypath.matches(policy.pattern, path):
                 matched_patterns.add(policy.pattern)
 
-        winners = keypath.best_match(merge_policies, path)
         list_values = [v for v in values if isinstance(v, list)]
-        for policy in winners:
-            if policy.strategy in _MAP_STRATEGIES and any(isinstance(v, dict) for v in values):
-                map_shaped_wins.add(policy.pattern)
-            elif policy.strategy in list_merge.PLAIN_LIST_STRATEGIES and list_values:
-                if not list_merge.has_map_element(list_values):
-                    plain_list_wins.add(policy.pattern)
-            elif policy.strategy in list_merge.TUPLE_STRATEGIES and list_values:
-                if list_merge.has_map_element(list_values):
-                    list_of_maps_wins.add(policy.pattern)
-                else:
-                    non_map_tuple_patterns.add(policy.pattern)
-
+        for policy in keypath.best_match(merge_policies, path):
             if policy.strategy in list_merge.COMPARING_STRATEGIES and list_values:
                 elements = [
                     element.value if isinstance(element, Remove) else element
@@ -168,6 +176,27 @@ def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], 
                 ]
                 if list_merge.has_vault_comparison(elements, policy.strategy, policy.tuple_keys):
                     vault_comparison_patterns.add(policy.pattern)
+
+    map_shaped_wins: set[str] = set()
+    plain_list_wins: set[str] = set()
+    list_of_maps_wins: set[str] = set()
+    non_map_tuple_patterns: set[str] = set()
+
+    for host in loaded_hosts:
+        for decision in _decisions_for_host(host, merge_policies):
+            policy = decision.policy
+            if policy is None or not decision.applied:
+                continue
+            if policy.strategy in _MAP_STRATEGIES:
+                map_shaped_wins.add(policy.pattern)
+            elif policy.strategy in list_merge.PLAIN_LIST_STRATEGIES:
+                if decision.shape == merge_plan.LIST_PLAIN:
+                    plain_list_wins.add(policy.pattern)
+            elif policy.strategy in list_merge.TUPLE_STRATEGIES:
+                if decision.shape == merge_plan.LIST_OF_MAPS:
+                    list_of_maps_wins.add(policy.pattern)
+                else:
+                    non_map_tuple_patterns.add(policy.pattern)
 
     for _pattern in non_map_tuple_patterns:
         collector.add("validate.non_map_in_tuple_merge")

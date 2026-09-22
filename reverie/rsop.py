@@ -12,11 +12,11 @@ intermediate maps included. Each record carries exactly one of `value:`,
 declared strategy/pattern, or the ambient one it inherited) and its
 `contributors`, most-specific-first.
 
-The merge mechanics mirror `resolve._merge_key` exactly (same ambient-
-inheritance rule, same shape-mismatch fallback to most-specific-wins), with
-list merging delegated straight to `resolve._merge_lists` so a list's
-*value* here is always identical to what `compile` would emit for it --
-only the contributor bookkeeping is new. Per CONTEXT.md's `Contributor`
+The binding decision (policy, effective strategy, shape, applied-or-not) at
+each key path comes from `merge_plan.bind`, the same primitive `resolve`
+executes -- so a list's *value* here is always identical to what `compile`
+would emit for it, via the same `resolve.merge_lists`. Only the per-layer
+contributor bookkeeping is this module's own. Per CONTEXT.md's `Contributor`
 entry, a layer's contribution at a key path resolves to exactly one of:
 
 - `won` -- the sole survivor under most-specific-wins (an explicit `first`,
@@ -38,7 +38,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from reverie import list_merge
+from reverie import list_merge, merge_plan
 from reverie.errors import Diagnostic, DiagnosticCollector, PhaseFailed
 from reverie.phases import configure as configure_phase
 from reverie.phases import enumerate as enumerate_phase
@@ -48,7 +48,6 @@ from reverie.phases.configure import MergePolicy, SourceConfig
 from reverie.phases.enumerate import LayerRef
 from reverie.phases.load import LoadedHost
 from reverie.phases.resolve import merge_lists
-from reverie import keypath
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
 from reverie.yaml_io import Remove, Vault, dump_pinned
 
@@ -106,15 +105,19 @@ def _record_for_path(
     return its resolved value (or `_ABSENT` if removed) for the parent
     map merge to fold in -- the same shape `resolve._merge_key` returns."""
 
+    decision = merge_plan.bind(key_path, [value for _layer, value in contributions], merge_policies, ambient_strategy)
+    policy = decision.policy
+    strategy = decision.strategy
+
+    # `bind` computes the same reset-on-`!remove` effective set, but
+    # without layer identity -- the contributor bookkeeping below needs
+    # each surviving value's layer, so it's paired here separately.
     effective: list[tuple[LayerRef, object]] = []
     for layer, value in contributions:
         if isinstance(value, Remove):
             effective = []
         else:
             effective.append((layer, value))
-
-    policy = keypath.winner(merge_policies, key_path)
-    strategy = policy.strategy if policy else ambient_strategy
 
     effective_addresses = {layer.address for layer, _ in effective}
     outcome_by_address: dict[str, str] = {}
@@ -126,22 +129,23 @@ def _record_for_path(
 
     result: object
 
-    if not effective:
+    if decision.shape == merge_plan.ABSENT:
         result = _ABSENT
-    elif strategy in ("shallow", "deep") and all(isinstance(v, dict) for _, v in effective):
+    elif decision.applied and strategy in merge_plan.MAP_STRATEGIES:
         for layer, _ in effective:
             outcome_by_address[layer.address] = "merged"
-        child_ambient = "deep" if strategy == "deep" else "first"
         keys = dict.fromkeys(key for _, d in effective for key in d)
         merged: dict = {}
         for key in keys:
             child_path = f"{key_path}/{key}" if key_path else key
             child_contributions = [(layer, d[key]) for layer, d in effective if key in d]
-            child_value = _record_for_path(records, child_path, child_contributions, merge_policies, child_ambient)
+            child_value = _record_for_path(
+                records, child_path, child_contributions, merge_policies, decision.children_ambient
+            )
             if child_value is not _ABSENT:
                 merged[key] = child_value
         result = merged
-    elif strategy in list_merge.LIST_STRATEGIES and all(isinstance(v, list) for _, v in effective):
+    elif decision.applied and strategy in list_merge.LIST_STRATEGIES:
         for layer, _ in effective:
             outcome_by_address[layer.address] = "merged"
         tuple_keys = policy.tuple_keys if policy else None
