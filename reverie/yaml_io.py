@@ -1,8 +1,8 @@
 """Loading and emitting YAML under Reverie's closed value domain.
 
 ADR 0008 closes the value domain to string, integer, float, boolean, null,
-list, and map -- exactly JSON's types (the `!vault`/`!secret` tags are a
-later ticket's concern). Timestamps, binary, sets, ordered maps, NaN, and
+list, and map -- exactly JSON's types, plus `!vault` (`!secret` is a later
+ticket's concern). Timestamps, binary, sets, ordered maps, NaN, and
 infinity are load errors rather than silently accepted, and anchors,
 aliases, and `<<` merge keys are forbidden outright.
 
@@ -75,6 +75,26 @@ class Remove:
     def __repr__(self) -> str:
         return "!remove"
 
+VAULT_TAG = "!vault"
+
+
+class Vault:
+    """Marker for a `!vault`-tagged scalar (CONTEXT.md "!vault").
+
+    Opaque by construction: `value` is the tagged node's raw scalar text,
+    carried verbatim through load, validate, and resolve, untouched by
+    anything that would inspect, interpolate, or compare it -- ADR 0006.
+    """
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: str):
+        self.value = value
+
+    def __repr__(self) -> str:
+        return f"!vault {self.value!r}"
+
+
 _ALLOWED_TAGS = {
     "tag:yaml.org,2002:map",
     "tag:yaml.org,2002:seq",
@@ -143,6 +163,15 @@ def _construct_remove(loader: yaml.SafeLoader, node: yaml.Node) -> Remove:
 _ClosedLoader.add_constructor(REMOVE_TAG, _construct_remove)
 
 
+def _construct_vault(loader: yaml.SafeLoader, node: yaml.Node) -> Vault:
+    # `_check_tags` has already rejected a non-scalar `!vault` node before
+    # construction reaches here, so `node.value` is always the raw text.
+    return Vault(node.value)
+
+
+_ClosedLoader.add_constructor(VAULT_TAG, _construct_vault)
+
+
 def _check_resolved_tag(tag: str, node: yaml.Node) -> None:
     if tag in _FORBIDDEN_TAG_KINDS:
         raise ValueDomainError(_FORBIDDEN_TAG_KINDS[tag], node.start_mark.line + 1)
@@ -170,6 +199,16 @@ def _check_tags(loader: yaml.SafeLoader, node: yaml.Node) -> None:
         elif isinstance(node, yaml.ScalarNode):
             resolved = loader.resolve(yaml.ScalarNode, node.value, (True, False))
             _check_resolved_tag(resolved, node)
+        return
+
+    if node.tag == VAULT_TAG:
+        # Opaque by construction: a `!vault` scalar's content is never
+        # inspected, so nothing about it needs checking beyond "it is a
+        # scalar" -- tagging a map or sequence (including the whole
+        # document) is rejected instead of silently accepted, since a
+        # merge engine needs to see the values it merges (ADR 0006).
+        if not isinstance(node, yaml.ScalarNode):
+            raise ValueDomainError("vault_not_scalar", node.start_mark.line + 1)
         return
 
     _check_resolved_tag(node.tag, node)
@@ -211,7 +250,12 @@ def _represent_dict(dumper: yaml.SafeDumper, data: dict):
     )
 
 
+def _represent_vault(dumper: yaml.SafeDumper, data: Vault):
+    return dumper.represent_scalar(VAULT_TAG, data.value)
+
+
 _PinnedDumper.add_representer(dict, _represent_dict)
+_PinnedDumper.add_representer(Vault, _represent_vault)
 _PinnedDumper.ignore_aliases = lambda self, data: True
 
 

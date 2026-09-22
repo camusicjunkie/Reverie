@@ -14,7 +14,7 @@ list: any map present anywhere makes it list-of-maps; otherwise it's a
 
 from __future__ import annotations
 
-from reverie.yaml_io import Remove
+from reverie.yaml_io import Remove, Vault
 
 PLAIN_LIST_STRATEGIES = ("append", "unique")
 TUPLE_STRATEGIES = ("unique_tuple", "deep_tuple")
@@ -42,6 +42,32 @@ def elements_equal(a: object, b: object, strategy: str, tuple_keys: tuple[str, .
     if not tuple_keys or not isinstance(a, dict) or not isinstance(b, dict):
         return False
     return all(key in a and key in b and exact_equal(a[key], b[key]) for key in tuple_keys)
+
+
+def _compared_values(element: object, strategy: str, tuple_keys: tuple[str, ...] | None) -> tuple[object, ...]:
+    """The value(s) `elements_equal` actually inspects for `element` under `strategy`."""
+
+    if strategy == "unique":
+        return (element,)
+    if tuple_keys and isinstance(element, dict):
+        return tuple(element[key] for key in tuple_keys if key in element)
+    return ()
+
+
+def has_vault_comparison(elements: list[object], strategy: str, tuple_keys: tuple[str, ...] | None) -> bool:
+    """Whether comparing `elements` under `strategy` would inspect a `!vault` scalar.
+
+    Salting makes ciphertext comparison meaningless (ADR 0006) -- `unique`
+    and the tuple strategies must never silently compare a `!vault`
+    scalar's content, whether as a whole element (`unique`) or as one of
+    its `tuple_keys` fields (`unique_tuple`/`deep_tuple`).
+    """
+
+    return any(
+        isinstance(value, Vault)
+        for element in elements
+        for value in _compared_values(element, strategy, tuple_keys)
+    )
 
 
 def has_map_element(layer_lists: list[list[object]]) -> bool:

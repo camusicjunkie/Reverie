@@ -23,7 +23,7 @@ def compile_source(source_arg: str | None) -> list[Diagnostic]:
         config = configure_phase.configure(source_arg)
         plans = enumerate_phase.enumerate_hosts(config)
         loaded = load_phase.load_layers(plans)
-        validated = validate_phase.validate(loaded, config.merge_policies)
+        validated = validate_phase.validate(loaded, config.merge_policies, config.secrets)
         resolved = resolve_phase.resolve(validated, config.merge_policies)
         emit_phase.emit(config, resolved)
     except PhaseFailed as exc:

@@ -238,7 +238,7 @@
 - id: validate.secret_is_plaintext
   phase: validate
   fields: [layer]
-  implemented: false
+  implemented: true
 - id: validate.strategy_never_applies
   phase: validate
   fields: [key_path]
@@ -254,7 +254,7 @@
 - id: validate.secret_not_comparable
   phase: validate
   fields: [key_path]
-  implemented: false
+  implemented: true
 - id: validate.host_has_no_keys
   phase: validate
   fields: [host]

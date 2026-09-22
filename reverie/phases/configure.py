@@ -145,6 +145,7 @@ class SourceConfig:
     chain: list[ChainEntry]
     defaults: str | None
     merge_policies: list[MergePolicy]
+    secrets: list[str]
 
 
 def configure(source_arg: str | None) -> SourceConfig:
@@ -240,6 +241,11 @@ def configure(source_arg: str | None) -> SourceConfig:
             if _patterns_tie(first.pattern, second.pattern):
                 collector.add("configure.ambiguous_specificity", file=str(reverie_yml), key_path=first.pattern)
 
+    secrets_raw = raw.get("secrets", []) or []
+    secrets = [entry for entry in secrets_raw if isinstance(entry, str)] if isinstance(secrets_raw, list) else []
+
     collector.raise_if_any()
 
-    return SourceConfig(root=root, layout=layout, chain=chain, defaults=defaults, merge_policies=merge_policies)
+    return SourceConfig(
+        root=root, layout=layout, chain=chain, defaults=defaults, merge_policies=merge_policies, secrets=secrets
+    )

@@ -78,8 +78,8 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `validate.non_map_in_tuple_merge` | -- | yes |
 | `validate.pattern_matches_nothing` | pattern | yes |
 | `validate.remove_matches_nothing` | -- | yes |
-| `validate.secret_is_plaintext` | layer | no |
-| `validate.secret_not_comparable` | key_path | no |
+| `validate.secret_is_plaintext` | layer | yes |
+| `validate.secret_not_comparable` | key_path | yes |
 | `validate.secrets_pattern_matches_nothing` | pattern | no |
 | `validate.strategy_never_applies` | key_path | yes |
 

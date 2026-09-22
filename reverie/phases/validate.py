@@ -8,9 +8,18 @@ whose strategy never wins against a shape it can bind to on any host
 wins (`validate.non_map_in_tuple_merge`), a duplicate element within one
 layer's own list under a comparing strategy (`validate.duplicate_in_layer`),
 and a `!remove` (map key or list element) that has nothing more general to
-remove (`validate.remove_matches_nothing`). The `resolve` phase raises no
-errors at all, by design -- anything that could go wrong with merge data is
-caught here first.
+remove (`validate.remove_matches_nothing`).
+
+Checks scoped to declared `secrets:` key paths (ADR 0006): a `!vault`
+scalar reached by a comparing strategy (`unique`, `unique_tuple`,
+`deep_tuple`) -- whole-element for `unique`, a `tuple_keys` field for the
+tuple strategies -- since salting makes ciphertext comparison meaningless
+(`validate.secret_not_comparable`), and a plaintext (non-`!vault`) value at
+a declared secret key path in any walked layer, winner or not
+(`validate.secret_is_plaintext`).
+
+The `resolve` phase raises no errors at all, by design -- anything that
+could go wrong with merge data is caught here first.
 """
 
 from __future__ import annotations
@@ -19,7 +28,7 @@ from reverie import keypath, list_merge
 from reverie.errors import DiagnosticCollector
 from reverie.phases.configure import MergePolicy
 from reverie.phases.load import LoadedHost
-from reverie.yaml_io import Remove
+from reverie.yaml_io import Remove, Vault
 
 PHASE = "validate"
 
@@ -96,12 +105,33 @@ def _check_duplicates_in_layer(host: LoadedHost, collector: DiagnosticCollector,
                     break  # one report per key path is enough; keep scanning the layer's other paths
 
 
-def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy]) -> list[LoadedHost]:
+def _check_secrets(host: LoadedHost, collector: DiagnosticCollector, secrets: list[str]) -> None:
+    """A plaintext value at a declared secret key path, in any walked layer.
+
+    Checked over every layer, not just the winner -- a non-winning layer's
+    plaintext is exactly as much of a leak risk sitting in git history
+    (ADR 0006).
+    """
+
+    if not secrets:
+        return
+
+    for layer, layer_data in host.layers:
+        for path, value in _walk(layer_data):
+            if isinstance(value, (dict, list, Remove)):
+                continue
+            if not isinstance(value, Vault) and any(keypath.matches(pattern, path) for pattern in secrets):
+                collector.add("validate.secret_is_plaintext", layer=str(layer.path))
+
+
+def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], secrets: list[str] | None = None) -> list[LoadedHost]:
     collector = DiagnosticCollector(PHASE)
+    secrets = secrets or []
 
     for host in loaded_hosts:
         _check_removals(host, collector, merge_policies)
         _check_duplicates_in_layer(host, collector, merge_policies)
+        _check_secrets(host, collector, secrets)
 
     values_by_path: dict[str, list[object]] = {}
     for host in loaded_hosts:
@@ -114,6 +144,7 @@ def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy]) 
     plain_list_wins: set[str] = set()
     list_of_maps_wins: set[str] = set()
     non_map_tuple_patterns: set[str] = set()
+    vault_comparison_patterns: set[str] = set()
 
     for path, values in values_by_path.items():
         for policy in merge_policies:
@@ -134,8 +165,20 @@ def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy]) 
                 else:
                     non_map_tuple_patterns.add(policy.pattern)
 
+            if policy.strategy in list_merge.COMPARING_STRATEGIES and list_values:
+                elements = [
+                    element.value if isinstance(element, Remove) else element
+                    for layer_list in list_values
+                    for element in layer_list
+                ]
+                if list_merge.has_vault_comparison(elements, policy.strategy, policy.tuple_keys):
+                    vault_comparison_patterns.add(policy.pattern)
+
     for _pattern in non_map_tuple_patterns:
         collector.add("validate.non_map_in_tuple_merge")
+
+    for pattern in vault_comparison_patterns:
+        collector.add("validate.secret_not_comparable", key_path=pattern)
 
     for policy in merge_policies:
         if policy.pattern not in matched_patterns:
