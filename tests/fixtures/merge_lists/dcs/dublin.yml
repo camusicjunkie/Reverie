@@ -1,0 +1,8 @@
+members: [gamma]
+tags: [y, z]
+groups:
+  - name: admins
+    perms: [write]
+contacts:
+  - name: alice
+    role: sre

@@ -135,6 +135,7 @@ class ChainEntry:
 class MergePolicy:
     pattern: str
     strategy: str
+    tuple_keys: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -214,10 +215,14 @@ def configure(source_arg: str | None) -> SourceConfig:
     merge_policies: list[MergePolicy] = []
     if isinstance(merge_raw, dict):
         for pattern, entry in merge_raw.items():
+            tuple_keys = None
             if isinstance(entry, str):
                 strategy = entry
             elif isinstance(entry, dict) and isinstance(entry.get("strategy"), str):
                 strategy = entry["strategy"]
+                raw_tuple_keys = entry.get("tuple_keys")
+                if isinstance(raw_tuple_keys, list) and all(isinstance(k, str) for k in raw_tuple_keys):
+                    tuple_keys = tuple(raw_tuple_keys)
             else:
                 collector.add("configure.missing_strategy", file=str(reverie_yml), key_path=pattern)
                 continue
@@ -228,7 +233,7 @@ def configure(source_arg: str | None) -> SourceConfig:
                 )
                 continue
 
-            merge_policies.append(MergePolicy(pattern=pattern, strategy=strategy))
+            merge_policies.append(MergePolicy(pattern=pattern, strategy=strategy, tuple_keys=tuple_keys))
 
     for index, first in enumerate(merge_policies):
         for second in merge_policies[index + 1 :]:

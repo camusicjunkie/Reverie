@@ -72,10 +72,10 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | id | fields | implemented |
 | --- | --- | --- |
 | `validate.duplicate_floor_key` | file, line | no |
-| `validate.duplicate_in_layer` | file, line | no |
+| `validate.duplicate_in_layer` | file, line | yes |
 | `validate.host_has_no_keys` | host | no |
 | `validate.missing_tuple_key` | -- | no |
-| `validate.non_map_in_tuple_merge` | -- | no |
+| `validate.non_map_in_tuple_merge` | -- | yes |
 | `validate.pattern_matches_nothing` | pattern | yes |
 | `validate.remove_matches_nothing` | -- | yes |
 | `validate.secret_is_plaintext` | layer | no |
@@ -107,7 +107,7 @@ _No error conditions._
 | `first` | scalar | Most-specific layer to define the key wins outright. |
 | `shallow` | map | Shallow-merges maps one level deep; most-specific wins per key. |
 | `deep` | map | Recursively merges maps at every depth; most-specific wins per leaf. |
-| `append` | plain_list | Concatenates lists, most-general first. |
+| `append` | plain_list | Concatenates lists, most-specific first. |
 | `unique` | plain_list | Concatenates lists and removes duplicate scalar elements. |
 | `unique_tuple` | list_of_maps | Concatenates lists of maps, de-duplicating by declared tuple_keys. |
 | `deep_tuple` | list_of_maps | Deep-merges list-of-map elements matched by declared tuple_keys. |

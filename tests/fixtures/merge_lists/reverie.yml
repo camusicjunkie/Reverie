@@ -1,0 +1,15 @@
+layout: "{{ host.dc }}"
+chain:
+  - "dcs/{{ host.dc }}.yml"
+  - "roles/{{ host.role }}.yml"
+defaults: defaults/common.yml
+merge:
+  members: append
+  tags: unique
+  groups:
+    strategy: deep_tuple
+    tuple_keys: [name]
+  contacts:
+    strategy: unique_tuple
+    tuple_keys: [name]
+  features: unique

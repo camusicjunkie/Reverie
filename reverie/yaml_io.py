@@ -56,19 +56,24 @@ REMOVE_TAG = "!remove"
 
 
 class Remove:
-    """Sentinel for a `!remove`-tagged value (CONTEXT.md "!remove").
+    """Marker for a `!remove`-tagged value (CONTEXT.md "!remove").
 
-    Holds no position and carries no content -- what it was tagged onto in
-    the source is irrelevant, only that it was tagged at all.
+    Never emitted and holds no position in a merged result -- what it was
+    tagged onto contributes a *match*, not an element. For map-key removal
+    that's the whole story: identity comes from the key, not the value.
+    List-element removal needs more: `!remove foo` must still know it was
+    "foo" so list-merge can find the general-layer element it matches, so
+    `value` carries the tagged node's own constructed content (`None` for
+    a bare `!remove`).
     """
 
-    __slots__ = ()
+    __slots__ = ("value",)
+
+    def __init__(self, value=None):
+        self.value = value
 
     def __repr__(self) -> str:
         return "!remove"
-
-
-REMOVE = Remove()
 
 _ALLOWED_TAGS = {
     "tag:yaml.org,2002:map",
@@ -116,31 +121,66 @@ _ClosedLoader.add_constructor("tag:yaml.org,2002:float", _construct_float)
 
 
 def _construct_remove(loader: yaml.SafeLoader, node: yaml.Node) -> Remove:
-    return REMOVE
+    # The node's own tag is `!remove`, so construct it as whatever it would
+    # have resolved to without that tag (a clone with the implicit tag),
+    # rather than re-entering this constructor.
+    if isinstance(node, yaml.ScalarNode):
+        tag = loader.resolve(yaml.ScalarNode, node.value, (True, False))
+        clone = yaml.ScalarNode(tag, node.value, node.start_mark, node.end_mark, node.style)
+    elif isinstance(node, yaml.MappingNode):
+        clone = yaml.MappingNode(
+            "tag:yaml.org,2002:map", node.value, node.start_mark, node.end_mark, node.flow_style
+        )
+    elif isinstance(node, yaml.SequenceNode):
+        clone = yaml.SequenceNode(
+            "tag:yaml.org,2002:seq", node.value, node.start_mark, node.end_mark, node.flow_style
+        )
+    else:
+        return Remove(None)
+    return Remove(loader.construct_object(clone, deep=True))
 
 
 _ClosedLoader.add_constructor(REMOVE_TAG, _construct_remove)
 
 
-def _check_tags(node: yaml.Node) -> None:
+def _check_resolved_tag(tag: str, node: yaml.Node) -> None:
+    if tag in _FORBIDDEN_TAG_KINDS:
+        raise ValueDomainError(_FORBIDDEN_TAG_KINDS[tag], node.start_mark.line + 1)
+    if tag not in _ALLOWED_TAGS:
+        raise UnknownTagError(tag, node.start_mark.line + 1)
+
+
+def _check_tags(loader: yaml.SafeLoader, node: yaml.Node) -> None:
     """Walk the composed node tree, rejecting any tag outside the closed domain."""
 
     if node.tag == REMOVE_TAG:
-        # Holds no position -- its underlying content is never inspected.
+        # The tag itself is exempt from the allowed-tags check, but its
+        # underlying content is still constructed (for list-element
+        # matching) and so still has to live in the closed domain -- a
+        # scalar's *implicit* tag (e.g. a bare timestamp) included, since
+        # nothing else resolves or checks it once `!remove` intercepts
+        # the node's own tag.
+        if isinstance(node, yaml.MappingNode):
+            for key_node, value_node in node.value:
+                _check_tags(loader, key_node)
+                _check_tags(loader, value_node)
+        elif isinstance(node, yaml.SequenceNode):
+            for item_node in node.value:
+                _check_tags(loader, item_node)
+        elif isinstance(node, yaml.ScalarNode):
+            resolved = loader.resolve(yaml.ScalarNode, node.value, (True, False))
+            _check_resolved_tag(resolved, node)
         return
 
-    if node.tag in _FORBIDDEN_TAG_KINDS:
-        raise ValueDomainError(_FORBIDDEN_TAG_KINDS[node.tag], node.start_mark.line + 1)
-    if node.tag not in _ALLOWED_TAGS:
-        raise UnknownTagError(node.tag, node.start_mark.line + 1)
+    _check_resolved_tag(node.tag, node)
 
     if isinstance(node, yaml.MappingNode):
         for key_node, value_node in node.value:
-            _check_tags(key_node)
-            _check_tags(value_node)
+            _check_tags(loader, key_node)
+            _check_tags(loader, value_node)
     elif isinstance(node, yaml.SequenceNode):
         for item_node in node.value:
-            _check_tags(item_node)
+            _check_tags(loader, item_node)
 
 
 def load_closed_domain(text: str):
@@ -155,7 +195,7 @@ def load_closed_domain(text: str):
         node = loader.get_single_node()
         if node is None:
             return None
-        _check_tags(node)
+        _check_tags(loader, node)
         return loader.construct_document(node)
     finally:
         loader.dispose()

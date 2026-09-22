@@ -1,0 +1,13 @@
+members: [alpha, beta]
+tags: [x, y]
+features: [a, b]
+groups:
+  - name: admins
+    perms: [read]
+  - name: users
+    perms: [read]
+contacts:
+  - name: alice
+    role: eng
+  - name: bob
+    role: pm

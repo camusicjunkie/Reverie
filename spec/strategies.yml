@@ -13,7 +13,7 @@
   description: Recursively merges maps at every depth; most-specific wins per leaf.
 - id: append
   shape: plain_list
-  description: Concatenates lists, most-general first.
+  description: Concatenates lists, most-specific first.
 - id: unique
   shape: plain_list
   description: Concatenates lists and removes duplicate scalar elements.

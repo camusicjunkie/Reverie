@@ -1,0 +1,9 @@
+members: [delta]
+tags: [z, w]
+features: [!remove b, c]
+groups:
+  - name: admins
+    region: dublin
+contacts:
+  - name: carol
+    role: lead

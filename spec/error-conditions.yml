@@ -246,7 +246,7 @@
 - id: validate.non_map_in_tuple_merge
   phase: validate
   fields: []
-  implemented: false
+  implemented: true
 - id: validate.missing_tuple_key
   phase: validate
   fields: []
@@ -262,7 +262,7 @@
 - id: validate.duplicate_in_layer
   phase: validate
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: validate.duplicate_floor_key
   phase: validate
   fields: [file, line]
