@@ -35,18 +35,18 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | id | fields | implemented |
 | --- | --- | --- |
 | `enumerate.address_escapes_root` | host, pattern | no |
-| `enumerate.group_host_name_collision` | -- | no |
-| `enumerate.group_name_collision` | -- | no |
+| `enumerate.group_host_name_collision` | -- | yes |
+| `enumerate.group_name_collision` | -- | yes |
 | `enumerate.host_layout_violation` | host | yes |
 | `enumerate.host_walks_no_layers` | host | no |
 | `enumerate.illegal_fact_value` | host, key_path | no |
-| `enumerate.illegal_group_name` | host, fact, value | no |
-| `enumerate.missing_ansible_host_fact` | -- | no |
+| `enumerate.illegal_group_name` | host, fact, value | yes |
+| `enumerate.missing_ansible_host_fact` | -- | yes |
 | `enumerate.missing_host_fact` | host, chain_entry, fact | yes |
 | `enumerate.missing_layer_file` | host, chain_entry, rendered_address | yes |
 | `enumerate.non_scalar_fact` | host, key_path | no |
 | `enumerate.rsop_host_not_found` | -- | no |
-| `enumerate.ungrounded_group_fact` | -- | no |
+| `enumerate.ungrounded_group_fact` | -- | yes |
 
 ## load
 
@@ -98,7 +98,7 @@ _No error conditions._
 
 | id | fields | implemented |
 | --- | --- | --- |
-| `enumerate.undeclared_chain_fact` | -- | no |
+| `enumerate.undeclared_chain_fact` | -- | yes |
 
 ## Merge strategies
 

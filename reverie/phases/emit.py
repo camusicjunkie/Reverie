@@ -18,6 +18,7 @@ from pathlib import Path
 
 from reverie.errors import DiagnosticCollector
 from reverie.phases.configure import SecretBackend, SourceConfig
+from reverie.phases.enumerate import HostPlan
 from reverie.phases.resolve import ResolvedHost
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
 from reverie.yaml_io import Secret, has_generated_header, write_generated_file
@@ -65,8 +66,21 @@ def _host_artifact(config: SourceConfig, host: ResolvedHost) -> bytes:
     return write_generated_file(document)
 
 
-def _inventory(hosts: list[ResolvedHost]) -> bytes:
-    document = {"all": {"hosts": {host.name: None for host in hosts}}}
+def _inventory(
+    hosts: list[ResolvedHost], ansible_host_by_name: dict[str, str | None], groups: dict[str, list[str]]
+) -> bytes:
+    host_entries = {}
+    for host in hosts:
+        ansible_host = ansible_host_by_name.get(host.name)
+        host_entries[host.name] = {"ansible_host": ansible_host} if ansible_host is not None else None
+
+    document: dict = {"all": {"hosts": host_entries}}
+    if groups:
+        # Group entries carry membership only -- never data (ADR 0007) --
+        # so each member's value stays None, same as a plain host entry.
+        document["all"]["children"] = {
+            group: {"hosts": {member: None for member in members}} for group, members in groups.items()
+        }
     return write_generated_file(document)
 
 
@@ -116,14 +130,16 @@ def _plan_owned_directory(directory: Path, planned: dict[str, bytes], collector:
     return stale
 
 
-def emit(config: SourceConfig, hosts: list[ResolvedHost]) -> None:
+def emit(config: SourceConfig, hosts: list[ResolvedHost], host_plans: list[HostPlan], groups: dict[str, list[str]]) -> None:
     collector = DiagnosticCollector(PHASE)
 
     host_vars_dir = config.root / "host_vars"
     inventory_dir = config.root / "inventory"
 
+    ansible_host_by_name = {plan.name: plan.ansible_host for plan in host_plans}
+
     planned_host_files = {f"{host.name}.yml": _host_artifact(config, host) for host in hosts}
-    planned_inventory_files = {"hosts.yml": _inventory(hosts)}
+    planned_inventory_files = {"hosts.yml": _inventory(hosts, ansible_host_by_name, groups)}
 
     stale_host_files = _plan_owned_directory(host_vars_dir, planned_host_files, collector)
     stale_inventory_files = _plan_owned_directory(inventory_dir, planned_inventory_files, collector)

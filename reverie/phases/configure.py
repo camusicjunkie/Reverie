@@ -145,6 +145,12 @@ class SecretBackend:
 
 
 @dataclass(frozen=True)
+class GroupFact:
+    fact: str
+    prefix: str | None = None
+
+
+@dataclass(frozen=True)
 class SourceConfig:
     root: Path
     layout: str
@@ -153,6 +159,8 @@ class SourceConfig:
     merge_policies: list[MergePolicy]
     secrets: list[str]
     secret_backend: SecretBackend | None
+    inventory_groups: list[GroupFact]
+    ansible_host_fact: str | None
 
 
 def configure(source_arg: str | None) -> SourceConfig:
@@ -259,6 +267,25 @@ def configure(source_arg: str | None) -> SourceConfig:
             lookup=backend_raw["lookup"], options=options if isinstance(options, dict) else {}
         )
 
+    inventory_raw = raw.get("inventory", {}) or {}
+    inventory_groups: list[GroupFact] = []
+    ansible_host_fact: str | None = None
+    if isinstance(inventory_raw, dict):
+        groups_raw = inventory_raw.get("groups", []) or []
+        if isinstance(groups_raw, list):
+            for entry in groups_raw:
+                if isinstance(entry, str):
+                    inventory_groups.append(GroupFact(fact=entry))
+                elif isinstance(entry, dict) and isinstance(entry.get("fact"), str):
+                    prefix = entry.get("prefix")
+                    inventory_groups.append(
+                        GroupFact(fact=entry["fact"], prefix=prefix if isinstance(prefix, str) else None)
+                    )
+
+        host_fact_raw = inventory_raw.get("ansible_host")
+        if isinstance(host_fact_raw, str):
+            ansible_host_fact = host_fact_raw
+
     collector.raise_if_any()
 
     return SourceConfig(
@@ -269,4 +296,6 @@ def configure(source_arg: str | None) -> SourceConfig:
         merge_policies=merge_policies,
         secrets=secrets,
         secret_backend=secret_backend,
+        inventory_groups=inventory_groups,
+        ansible_host_fact=ansible_host_fact,
     )

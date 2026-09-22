@@ -187,15 +187,15 @@
 - id: enumerate.illegal_group_name
   phase: enumerate
   fields: [host, fact, value]
-  implemented: false
+  implemented: true
 - id: enumerate.group_name_collision
   phase: enumerate
   fields: []
-  implemented: false
+  implemented: true
 - id: enumerate.ungrounded_group_fact
   phase: enumerate
   fields: []
-  implemented: false
+  implemented: true
 - id: enumerate.non_scalar_fact
   phase: enumerate
   fields: [host, key_path]
@@ -215,11 +215,11 @@
 - id: enumerate.group_host_name_collision
   phase: enumerate
   fields: []
-  implemented: false
+  implemented: true
 - id: enumerate.missing_ansible_host_fact
   phase: enumerate
   fields: []
-  implemented: false
+  implemented: true
 
 # --- validate --------------------------------------------------------------
 

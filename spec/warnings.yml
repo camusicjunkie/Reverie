@@ -6,4 +6,4 @@
 - id: enumerate.undeclared_chain_fact
   phase: enumerate
   fields: []
-  implemented: false
+  implemented: true

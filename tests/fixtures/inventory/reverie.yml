@@ -1,0 +1,9 @@
+layout: ""
+chain: []
+defaults: defaults/common.yml
+inventory:
+  ansible_host: ip
+  groups:
+    - env
+    - fact: role
+      prefix: svc_

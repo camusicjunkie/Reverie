@@ -22,8 +22,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     # "compile" is the only registered subparser, so args.verb is always "compile".
-    diagnostics = compile_source(args.source)
-    if diagnostics:
-        print(json.dumps([d.to_dict() for d in diagnostics], indent=2), file=sys.stderr)
+    result = compile_source(args.source)
+    if result.diagnostics:
+        print(json.dumps([d.to_dict() for d in result.diagnostics], indent=2), file=sys.stderr)
         return 1
+    if result.warnings:
+        print(json.dumps([w.to_dict() for w in result.warnings], indent=2), file=sys.stderr)
     return 0
