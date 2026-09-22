@@ -85,11 +85,11 @@
 - id: configure.rsop_output_in_estate
   phase: configure
   fields: [path, tree]
-  implemented: false
+  implemented: true
 - id: configure.rsop_output_parent_missing
   phase: configure
   fields: [path]
-  implemented: false
+  implemented: true
 - id: configure.unexpected_output_flag
   phase: configure
   fields: []
@@ -211,7 +211,7 @@
 - id: enumerate.rsop_host_not_found
   phase: enumerate
   fields: []
-  implemented: false
+  implemented: true
 - id: enumerate.group_host_name_collision
   phase: enumerate
   fields: []

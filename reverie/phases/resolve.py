@@ -72,14 +72,14 @@ def _merge_key(
     if strategy in list_merge.LIST_STRATEGIES:
         if all(isinstance(v, list) for v in effective):
             tuple_keys = policy.tuple_keys if policy else None
-            return _merge_lists(key_path, effective, strategy, tuple_keys, merge_policies)
+            return merge_lists(key_path, effective, strategy, tuple_keys, merge_policies)
         return effective[-1]  # shape mismatch -> most-specific-wins
 
     # `first`: most-specific-wins.
     return effective[-1]
 
 
-def _merge_lists(
+def merge_lists(
     key_path: str,
     layer_lists: list[list[Any]],
     strategy: str,
@@ -93,6 +93,11 @@ def _merge_lists(
     folds each matched general-layer element into the kept (more
     specific) one via a normal map merge, at this same key path so any
     nested policy declared under it (e.g. `items/tags`) still applies.
+
+    Public (not `_`-prefixed): `reverie.rsop` calls this directly so a
+    list-shaped key path's RSOP value stays byte-identical to what
+    `resolve` would emit for it, rather than re-deriving list-merge
+    semantics against a private symbol.
     """
 
     removal_targets: list[Any] = []

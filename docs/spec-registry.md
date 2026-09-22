@@ -23,8 +23,8 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.missing_tuple_keys` | file, key_path | no |
 | `configure.no_secret_backend` | -- | yes |
 | `configure.reverie_yml_not_found` | file | yes |
-| `configure.rsop_output_in_estate` | path, tree | no |
-| `configure.rsop_output_parent_missing` | path | no |
+| `configure.rsop_output_in_estate` | path, tree | yes |
+| `configure.rsop_output_parent_missing` | path | yes |
 | `configure.unexpected_output_flag` | -- | no |
 | `configure.unexpected_tuple_keys` | file, key_path | no |
 | `configure.unknown_entry_key` | file, key | no |
@@ -45,7 +45,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `enumerate.missing_host_fact` | host, chain_entry, fact | yes |
 | `enumerate.missing_layer_file` | host, chain_entry, rendered_address | yes |
 | `enumerate.non_scalar_fact` | host, key_path | no |
-| `enumerate.rsop_host_not_found` | -- | no |
+| `enumerate.rsop_host_not_found` | -- | yes |
 | `enumerate.ungrounded_group_fact` | -- | yes |
 
 ## load

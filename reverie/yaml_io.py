@@ -304,8 +304,13 @@ def _represent_vault(dumper: yaml.SafeDumper, data: Vault):
     return dumper.represent_scalar(VAULT_TAG, data.value)
 
 
+def _represent_secret(dumper: yaml.SafeDumper, data: Secret):
+    return dumper.represent_scalar(SECRET_TAG, data.address)
+
+
 _PinnedDumper.add_representer(dict, _represent_dict)
 _PinnedDumper.add_representer(Vault, _represent_vault)
+_PinnedDumper.add_representer(Secret, _represent_secret)
 _PinnedDumper.ignore_aliases = lambda self, data: True
 
 
