@@ -81,3 +81,93 @@ def best_match(policies, key_path: str) -> list:
         return []
     top = max(score for score, _ in scored)
     return [policy for score, policy in scored if score == top]
+
+
+def winner(policies, key_path: str):
+    """The single declared policy that wins for `key_path`, or None.
+
+    Convenience over `best_match` for callers that only care about the
+    outright winner and don't need to distinguish "no match" from an
+    unresolved tie.
+    """
+
+    matches = best_match(policies, key_path)
+    return matches[0] if matches else None
+
+
+def _consume(tokens: tuple[str, ...], i: int) -> tuple[int, int, int, str | None]:
+    """One token's contribution when it accounts for one shared path segment.
+
+    Returns (next_index, literal_delta, star_delta, literal_value_or_None).
+    """
+
+    token = tokens[i]
+    if token == "**":
+        return i, 0, 0, None
+    if token == "*":
+        return i + 1, 0, 1, None
+    return i + 1, 1, 0, token
+
+
+def patterns_tie(first: str, second: str) -> bool:
+    """Whether two distinct merge-policy patterns could tie in specificity
+    on some shared concrete key path.
+
+    Modeled as a joint automaton walking a hypothetical shared path one
+    segment at a time: each pattern's `**` may either absorb the segment
+    (staying put) or step aside without consuming one (an epsilon move),
+    while `*` and literal tokens always consume exactly one segment. This
+    searches the resulting state graph for a way to fully parse both
+    patterns ending with equal (literal, star) specificity scores -- the
+    same score `specificity` would compute for each, on the same concrete
+    path.
+    """
+
+    a = _tokenize(first)
+    b = _tokenize(second)
+    la, lb = len(a), len(b)
+
+    start = (0, 0, 0, 0, 0, 0)
+    seen = {start}
+    stack = [start]
+    while stack:
+        i, j, lit_a, star_a, lit_b, star_b = stack.pop()
+
+        if i == la and j == lb and lit_a == lit_b and star_a == star_b:
+            return True
+
+        if i < la and a[i] == "**":
+            nxt = (i + 1, j, lit_a, star_a, lit_b, star_b)
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+        if j < lb and b[j] == "**":
+            nxt = (i, j + 1, lit_a, star_a, lit_b, star_b)
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+
+        if i < la and j < lb:
+            ni, dla, dsa, tok_a = _consume(a, i)
+            nj, dlb, dsb, tok_b = _consume(b, j)
+            if tok_a is None or tok_b is None or tok_a == tok_b:
+                nxt = (ni, nj, lit_a + dla, star_a + dsa, lit_b + dlb, star_b + dsb)
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+
+    return False
+
+
+def tied_patterns(patterns) -> list[tuple[str, str]]:
+    """Every pair of `patterns` that could tie in specificity on some
+    shared concrete key path, earlier pattern first within each pair.
+    """
+
+    patterns = list(patterns)
+    pairs: list[tuple[str, str]] = []
+    for i, first in enumerate(patterns):
+        for second in patterns[i + 1 :]:
+            if patterns_tie(first, second):
+                pairs.append((first, second))
+    return pairs

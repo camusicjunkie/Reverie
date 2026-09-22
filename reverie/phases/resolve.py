@@ -42,11 +42,6 @@ class ResolvedHost:
     layers_walked: list[str]
 
 
-def _explicit_policy(key_path: str, merge_policies: list[MergePolicy]) -> MergePolicy | None:
-    matches = keypath.best_match(merge_policies, key_path)
-    return matches[0] if matches else None
-
-
 def _merge_key(
     key_path: str,
     contributions: list[Any],
@@ -65,7 +60,7 @@ def _merge_key(
     if not effective:
         return _ABSENT
 
-    policy = _explicit_policy(key_path, merge_policies)
+    policy = keypath.winner(merge_policies, key_path)
     strategy = policy.strategy if policy else ambient_strategy
 
     if strategy in ("shallow", "deep"):

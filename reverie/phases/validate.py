@@ -47,11 +47,6 @@ def _walk(data: dict, prefix: str = "") -> list[tuple[str, object]]:
     return entries
 
 
-def _best_policy(key_path: str, merge_policies: list[MergePolicy]) -> MergePolicy | None:
-    matches = keypath.best_match(merge_policies, key_path)
-    return matches[0] if matches else None
-
-
 def _check_removals(host: LoadedHost, collector: DiagnosticCollector, merge_policies: list[MergePolicy]) -> None:
     """A `!remove` reaches downward only: it must match something a
     strictly more general (already-walked) layer defined -- a map key by
@@ -70,7 +65,7 @@ def _check_removals(host: LoadedHost, collector: DiagnosticCollector, merge_poli
                 seen_paths.add(path)
 
             if isinstance(value, list):
-                policy = _best_policy(path, merge_policies)
+                policy = keypath.winner(merge_policies, path)
                 strategy = policy.strategy if policy else None
                 tuple_keys = policy.tuple_keys if policy else None
                 prior = seen_list_elements.get(path, [])
@@ -95,7 +90,7 @@ def _check_duplicates_in_layer(host: LoadedHost, collector: DiagnosticCollector,
         for path, value in _walk(layer_data):
             if not isinstance(value, list):
                 continue
-            policy = _best_policy(path, merge_policies)
+            policy = keypath.winner(merge_policies, path)
             if policy is None or policy.strategy not in list_merge.COMPARING_STRATEGIES:
                 continue
             elements = [e for e in value if not isinstance(e, Remove)]
