@@ -65,7 +65,7 @@
 - id: configure.no_secret_backend
   phase: configure
   fields: []
-  implemented: false
+  implemented: true
 - id: configure.missing_strategy
   phase: configure
   fields: [file, key_path]
@@ -144,7 +144,7 @@
 - id: load.empty_secret_address
   phase: load
   fields: []
-  implemented: false
+  implemented: true
 - id: load.key_contains_separator
   phase: load
   fields: [file, line]

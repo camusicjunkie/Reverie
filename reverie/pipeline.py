@@ -22,7 +22,7 @@ def compile_source(source_arg: str | None) -> list[Diagnostic]:
     try:
         config = configure_phase.configure(source_arg)
         plans = enumerate_phase.enumerate_hosts(config)
-        loaded = load_phase.load_layers(plans)
+        loaded = load_phase.load_layers(plans, config.secret_backend)
         validated = validate_phase.validate(loaded, config.merge_policies, config.secrets)
         resolved = resolve_phase.resolve(validated, config.merge_policies)
         emit_phase.emit(config, resolved)

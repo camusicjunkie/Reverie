@@ -21,7 +21,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.missing_source_argument` | -- | yes |
 | `configure.missing_strategy` | file, key_path | yes |
 | `configure.missing_tuple_keys` | file, key_path | no |
-| `configure.no_secret_backend` | -- | no |
+| `configure.no_secret_backend` | -- | yes |
 | `configure.reverie_yml_not_found` | file | yes |
 | `configure.rsop_output_in_estate` | path, tree | no |
 | `configure.rsop_output_parent_missing` | path | no |
@@ -55,7 +55,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `load.document_not_a_map` | file, line | yes |
 | `load.duplicate_host_name` | -- | no |
 | `load.duplicate_key` | file, line | no |
-| `load.empty_secret_address` | -- | no |
+| `load.empty_secret_address` | -- | yes |
 | `load.forbidden_alias` | file, line | no |
 | `load.illegal_fact_name` | file, line | no |
 | `load.invalid_yaml` | file, line, detail | yes |

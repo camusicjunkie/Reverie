@@ -14,9 +14,9 @@ Checks scoped to declared `secrets:` key paths (ADR 0006): a `!vault`
 scalar reached by a comparing strategy (`unique`, `unique_tuple`,
 `deep_tuple`) -- whole-element for `unique`, a `tuple_keys` field for the
 tuple strategies -- since salting makes ciphertext comparison meaningless
-(`validate.secret_not_comparable`), and a plaintext (non-`!vault`) value at
-a declared secret key path in any walked layer, winner or not
-(`validate.secret_is_plaintext`).
+(`validate.secret_not_comparable`), and a plaintext (neither `!vault` nor
+`!secret`) value at a declared secret key path in any walked layer, winner
+or not (`validate.secret_is_plaintext`).
 
 The `resolve` phase raises no errors at all, by design -- anything that
 could go wrong with merge data is caught here first.
@@ -28,7 +28,7 @@ from reverie import keypath, list_merge
 from reverie.errors import DiagnosticCollector
 from reverie.phases.configure import MergePolicy
 from reverie.phases.load import LoadedHost
-from reverie.yaml_io import Remove, Vault
+from reverie.yaml_io import Remove, Secret, Vault
 
 PHASE = "validate"
 
@@ -120,7 +120,7 @@ def _check_secrets(host: LoadedHost, collector: DiagnosticCollector, secrets: li
         for path, value in _walk(layer_data):
             if isinstance(value, (dict, list, Remove)):
                 continue
-            if not isinstance(value, Vault) and any(keypath.matches(pattern, path) for pattern in secrets):
+            if not isinstance(value, (Vault, Secret)) and any(keypath.matches(pattern, path) for pattern in secrets):
                 collector.add("validate.secret_is_plaintext", layer=str(layer.path))
 
 

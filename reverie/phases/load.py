@@ -8,10 +8,30 @@ from pathlib import Path
 import yaml
 
 from reverie.errors import DiagnosticCollector
+from reverie.phases.configure import SecretBackend
 from reverie.phases.enumerate import HostPlan, LayerRef
-from reverie.yaml_io import UnknownTagError, ValueDomainError, load_closed_domain
+from reverie.yaml_io import (
+    EmptySecretAddressError,
+    Remove,
+    Secret,
+    UnknownTagError,
+    ValueDomainError,
+    load_closed_domain,
+)
 
 PHASE = "load"
+
+
+def _contains_secret(value: object) -> bool:
+    if isinstance(value, Secret):
+        return True
+    if isinstance(value, Remove):
+        return _contains_secret(value.value)
+    if isinstance(value, dict):
+        return any(_contains_secret(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_secret(v) for v in value)
+    return False
 
 
 @dataclass(frozen=True)
@@ -21,7 +41,7 @@ class LoadedHost:
     layers: list[tuple[LayerRef, dict]]
 
 
-def load_layers(plans: list[HostPlan]) -> list[LoadedHost]:
+def load_layers(plans: list[HostPlan], secret_backend: SecretBackend | None = None) -> list[LoadedHost]:
     collector = DiagnosticCollector(PHASE)
     cache: dict[Path, dict | None] = {}
 
@@ -47,6 +67,9 @@ def load_layers(plans: list[HostPlan]) -> list[LoadedHost]:
                 line=exc.line,
                 tag=exc.tag,
             )
+            data = None
+        except EmptySecretAddressError:
+            collector.add("load.empty_secret_address")
             data = None
         except yaml.YAMLError as exc:
             mark = getattr(exc, "problem_mark", None)
@@ -78,6 +101,14 @@ def load_layers(plans: list[HostPlan]) -> list[LoadedHost]:
             data = read(layer)
             layers.append((layer, data if data is not None else {}))
         loaded.append(LoadedHost(name=plan.name, layers=layers))
+
+    if secret_backend is None and any(
+        _contains_secret(data) for host in loaded for _layer, data in host.layers
+    ):
+        # Detectable only now that layer files are parsed, but fixed by
+        # the design tracker as a `configure` condition -- a `!secret` tag
+        # is a reverie.yml-declaration problem, not a load-mechanics one.
+        collector.add("configure.no_secret_backend", phase="configure")
 
     collector.raise_if_any()
     return loaded

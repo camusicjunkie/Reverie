@@ -17,12 +17,35 @@ import tempfile
 from pathlib import Path
 
 from reverie.errors import DiagnosticCollector
-from reverie.phases.configure import SourceConfig
+from reverie.phases.configure import SecretBackend, SourceConfig
 from reverie.phases.resolve import ResolvedHost
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
-from reverie.yaml_io import has_generated_header, write_generated_file
+from reverie.yaml_io import Secret, has_generated_header, write_generated_file
 
 PHASE = "emit"
+
+
+def _secret_call(backend: SecretBackend, address: str) -> str:
+    """The backend's native reference form for `address`, as deferred Jinja.
+
+    Never evaluated by Reverie (position is the discriminator -- CONTEXT.md)
+    -- Ansible's own `lookup()` resolves it natively at play time. `options`
+    are public by construction (ADR 0005), so they ride along in the call
+    itself rather than anywhere Reverie would have to keep them secret.
+    """
+
+    kwargs = "".join(f", {key}={value!r}" for key, value in sorted(backend.options.items()))
+    return f"{{{{ lookup('{backend.lookup}', '{address}'{kwargs}) }}}}"
+
+
+def _translate_secrets(value: object, backend: SecretBackend | None):
+    if isinstance(value, Secret):
+        return _secret_call(backend, value.address)
+    if isinstance(value, dict):
+        return {key: _translate_secrets(v, backend) for key, v in value.items()}
+    if isinstance(value, list):
+        return [_translate_secrets(v, backend) for v in value]
+    return value
 
 
 def _host_artifact(config: SourceConfig, host: ResolvedHost) -> bytes:
@@ -31,7 +54,7 @@ def _host_artifact(config: SourceConfig, host: ResolvedHost) -> bytes:
         digest.update((config.root / address).read_bytes())
 
     document = {
-        "reverie": host.data,
+        "reverie": _translate_secrets(host.data, config.secret_backend),
         "reverie_meta": {
             "compiler_version": COMPILER_VERSION,
             "spec_version": SPEC_VERSION,

@@ -1,8 +1,8 @@
 """Loading and emitting YAML under Reverie's closed value domain.
 
 ADR 0008 closes the value domain to string, integer, float, boolean, null,
-list, and map -- exactly JSON's types, plus `!vault` (`!secret` is a later
-ticket's concern). Timestamps, binary, sets, ordered maps, NaN, and
+list, and map -- exactly JSON's types, plus `!vault` and `!secret`.
+Timestamps, binary, sets, ordered maps, NaN, and
 infinity are load errors rather than silently accepted, and anchors,
 aliases, and `<<` merge keys are forbidden outright.
 
@@ -50,6 +50,10 @@ class UnknownTagError(Exception):
         self.tag = tag
         self.line = line
         super().__init__(tag)
+
+
+class EmptySecretAddressError(Exception):
+    """A `!secret` tag carries no usable address."""
 
 
 REMOVE_TAG = "!remove"
@@ -172,6 +176,44 @@ def _construct_vault(loader: yaml.SafeLoader, node: yaml.Node) -> Vault:
 _ClosedLoader.add_constructor(VAULT_TAG, _construct_vault)
 
 
+SECRET_TAG = "!secret"
+
+
+class Secret:
+    """Marker for a `!secret <address>`-tagged scalar (CONTEXT.md "!secret").
+
+    A structured reference, not material: `address` is the tagged node's
+    raw scalar text, carried verbatim through load, validate, and resolve,
+    translated to the declared backend's native call only at emit. Unlike
+    `Vault`, address equality is meaningful -- `!secret` values compare by
+    `address` so they participate fully in `unique`/tuple merge strategies
+    (ADR 0006).
+    """
+
+    __slots__ = ("address",)
+
+    def __init__(self, address: str):
+        self.address = address
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Secret) and self.address == other.address
+
+    def __hash__(self) -> int:
+        return hash(("Secret", self.address))
+
+    def __repr__(self) -> str:
+        return f"!secret {self.address!r}"
+
+
+def _construct_secret(loader: yaml.SafeLoader, node: yaml.Node) -> Secret:
+    # `_check_tags` has already rejected a non-scalar or empty `!secret`
+    # node before construction reaches here.
+    return Secret(node.value)
+
+
+_ClosedLoader.add_constructor(SECRET_TAG, _construct_secret)
+
+
 def _check_resolved_tag(tag: str, node: yaml.Node) -> None:
     if tag in _FORBIDDEN_TAG_KINDS:
         raise ValueDomainError(_FORBIDDEN_TAG_KINDS[tag], node.start_mark.line + 1)
@@ -209,6 +251,14 @@ def _check_tags(loader: yaml.SafeLoader, node: yaml.Node) -> None:
         # merge engine needs to see the values it merges (ADR 0006).
         if not isinstance(node, yaml.ScalarNode):
             raise ValueDomainError("vault_not_scalar", node.start_mark.line + 1)
+        return
+
+    if node.tag == SECRET_TAG:
+        # A structured address, not material -- still only a scalar makes
+        # sense as "an address", and an empty one is unusable (the two
+        # acceptance criteria this tag's ticket names).
+        if not isinstance(node, yaml.ScalarNode) or not node.value.strip():
+            raise EmptySecretAddressError()
         return
 
     _check_resolved_tag(node.tag, node)

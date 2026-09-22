@@ -37,8 +37,12 @@ class DiagnosticCollector:
         self.phase = phase
         self._diagnostics: list[Diagnostic] = []
 
-    def add(self, id: str, **fields) -> None:
-        self._diagnostics.append(Diagnostic(id=id, phase=self.phase, fields=fields))
+    def add(self, id: str, *, phase: str | None = None, **fields) -> None:
+        # `phase` lets a check raised from one module's collector report
+        # under another phase's id -- e.g. `configure.no_secret_backend`
+        # is only detectable once layer files are loaded, but the design
+        # tracker fixed it as a `configure` condition (spec/error-conditions.yml).
+        self._diagnostics.append(Diagnostic(id=id, phase=phase or self.phase, fields=fields))
 
     def raise_if_any(self) -> None:
         if self._diagnostics:

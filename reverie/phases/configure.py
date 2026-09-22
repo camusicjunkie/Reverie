@@ -139,6 +139,12 @@ class MergePolicy:
 
 
 @dataclass(frozen=True)
+class SecretBackend:
+    lookup: str
+    options: dict
+
+
+@dataclass(frozen=True)
 class SourceConfig:
     root: Path
     layout: str
@@ -146,6 +152,7 @@ class SourceConfig:
     defaults: str | None
     merge_policies: list[MergePolicy]
     secrets: list[str]
+    secret_backend: SecretBackend | None
 
 
 def configure(source_arg: str | None) -> SourceConfig:
@@ -244,8 +251,22 @@ def configure(source_arg: str | None) -> SourceConfig:
     secrets_raw = raw.get("secrets", []) or []
     secrets = [entry for entry in secrets_raw if isinstance(entry, str)] if isinstance(secrets_raw, list) else []
 
+    backend_raw = raw.get("secret_backend")
+    secret_backend: SecretBackend | None = None
+    if isinstance(backend_raw, dict) and isinstance(backend_raw.get("lookup"), str):
+        options = backend_raw.get("options", {}) or {}
+        secret_backend = SecretBackend(
+            lookup=backend_raw["lookup"], options=options if isinstance(options, dict) else {}
+        )
+
     collector.raise_if_any()
 
     return SourceConfig(
-        root=root, layout=layout, chain=chain, defaults=defaults, merge_policies=merge_policies, secrets=secrets
+        root=root,
+        layout=layout,
+        chain=chain,
+        defaults=defaults,
+        merge_policies=merge_policies,
+        secrets=secrets,
+        secret_backend=secret_backend,
     )
