@@ -21,6 +21,7 @@ import yaml
 
 from reverie.errors import Diagnostic, DiagnosticCollector
 from reverie.phases.configure import GroupFact, SourceConfig
+from reverie.yaml_io import TaggedFact, load_permissive
 
 PHASE = "enumerate"
 
@@ -65,8 +66,13 @@ def _group_name(fact: GroupFact, value: str) -> str:
 def _has_fact(facts: dict, name: str) -> bool:
     # A key present but null carries no value to key an inventory decision
     # on -- treated the same as the key being absent outright, rather than
-    # stringified into a literal "None".
-    return name in facts and facts[name] is not None
+    # stringified into a literal "None". A tagged value is unusable the
+    # same way and treated the same: `!vault` is opaque by construction,
+    # `!secret` is an address emit resolves, `!remove` is a match marker.
+    # Stringifying any of the three would put its repr in a group name or
+    # an `ansible_host` -- for `!vault`, its ciphertext.
+    value = facts.get(name)
+    return value is not None and not isinstance(value, TaggedFact)
 
 
 class _FactError(Exception):
@@ -109,7 +115,11 @@ def _render_chain_address(address: str, host_facts: dict) -> str:
             raise _MissingFact(fact)
 
         value = host_facts[fact]
-        if isinstance(value, (dict, list)):
+        if isinstance(value, (dict, list, TaggedFact)):
+            # A tagged fact is as unusable as a map or a list here -- none
+            # of the three tags yields a value that could stand as a path
+            # segment -- so it reports the same condition rather than
+            # earning a fourth of its own.
             raise _FactError("enumerate.non_scalar_fact", fact)
 
         rendered = str(value)
@@ -136,18 +146,33 @@ def _escapes_root(root: Path, rendered: str) -> bool:
     return resolved != root_resolved and root_resolved not in resolved.parents
 
 
-def _load_host_facts(host_file: Path) -> dict:
-    # A permissive parse for chain templating only, deliberately separate
-    # from load.load_layers's closed-domain parse of the same file: the
-    # two need different rules (this one only reads scalars, and must not
-    # itself fail the compile on a value load.py will reject later with a
-    # proper diagnostic). The host file is read twice per compile as a
-    # result -- an accepted, cheap cost at this estate size.
+def _load_host_facts(host_file: Path) -> dict | None:
+    """A host file's own top-level keys, or None if none could be read.
+
+    A permissive parse for chain templating only, deliberately separate
+    from load.load_layers's closed-domain parse of the same file: the two
+    need different rules (this one only reads scalars, and must not itself
+    fail the compile on a value load.py will reject later with a proper
+    diagnostic). It knows Reverie's three tags -- a tagged value costs
+    only itself, never the file's other facts (issue #46). The host file
+    is read twice per compile as a result -- an accepted, cheap cost at
+    this estate size.
+
+    None means the file yielded no facts at all: malformed YAML, or a
+    document that isn't a map. Distinct from an empty dict, because the
+    caller must then stay silent about this host rather than report a
+    cascade of `missing_host_fact` entries for facts the file may well
+    declare -- `load.invalid_yaml` / `load.document_not_a_map`, one phase
+    later, name the actual fault.
+    """
+
     try:
-        data = yaml.safe_load(host_file.read_text(encoding="utf-8")) or {}
+        data = load_permissive(host_file.read_text(encoding="utf-8"))
     except yaml.YAMLError:
+        return None
+    if data is None:
         return {}
-    return data if isinstance(data, dict) else {}
+    return data if isinstance(data, dict) else None
 
 
 def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
@@ -161,9 +186,17 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
     for host_file in host_files:
         name = host_file.stem
         host_facts = _load_host_facts(host_file)
+        # Nothing readable in the file: every fact-derived check below
+        # stays silent for this host, so the one diagnostic a reader gets
+        # is `load`'s, which names the actual fault.
+        unreadable = host_facts is None
+        if unreadable:
+            host_facts = {}
         host_facts_by_name[name] = host_facts
 
-        if config.layout:
+        if unreadable:
+            rendered_layout = None
+        elif config.layout:
             try:
                 rendered_layout = _render_chain_address(config.layout, host_facts)
             except _MissingFact as exc:
@@ -207,7 +240,7 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
                 # `optional: true` excuses an absent *fact*, never an absent
                 # file -- and never a fact that is present but unusable, so
                 # the two _FactError conditions below aren't excused by it.
-                if not entry.optional:
+                if not entry.optional and not unreadable:
                     collector.add(
                         "enumerate.missing_host_fact",
                         host=name,
@@ -235,7 +268,7 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
                 continue
             layers.append(LayerRef(address=rendered, path=layer_path))
 
-        if not layers:
+        if not layers and not unreadable:
             # Nothing beneath the host's own file: the hierarchy contributed
             # nothing, so the host is a flat vars file wearing Reverie's
             # output shape rather than a composed one.
@@ -248,7 +281,7 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
         if config.ansible_host_fact:
             if _has_fact(host_facts, config.ansible_host_fact):
                 ansible_host = str(host_facts[config.ansible_host_fact])
-            else:
+            elif not unreadable:
                 collector.add("enumerate.missing_ansible_host_fact")
 
         plans.append(HostPlan(name=name, file=host_file, layers=layers, ansible_host=ansible_host))

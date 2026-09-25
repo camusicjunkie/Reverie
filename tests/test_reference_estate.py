@@ -5,7 +5,8 @@ four roles and an optional tier layer, so the estate exercises realistic
 composition rather than one isolated rule: a six-entry chain over a
 defaults floor, a non-empty layout, merge policies at four specificities
 over two subtrees, both flavours of list-of-maps merge, `!remove` of both
-a map key and a list element, `!vault` and `!secret` under a declared
+a map key and a list element (one of them from a host file's own data, so
+the estate covers issue #46), `!vault` and `!secret` under a declared
 `secrets:` path, deferred Jinja riding through inert, and inventory
 grouping over six facts.
 
@@ -137,7 +138,9 @@ EXPECTED = {
         "addr": "10.20.1.13",
         "monitoring": "prometheus",
         "admin_users": ["svc_oncall", "svc_platforms", "svc_baseline"],
-        "windows_features": ["Web-Server", "Web-Mgmt-Console", "NET-Framework-45-Core"],
+        # The host file's own `!remove` takes the console feature back out
+        # of what its role layer installs (issue #46).
+        "windows_features": ["Web-Server", "NET-Framework-45-Core"],
         "tagging": {"owner": "platforms", "policy_version": "2.0", "tier": "core"},
         "computer_settings": {
             "audit": True,

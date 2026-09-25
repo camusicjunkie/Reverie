@@ -8,6 +8,9 @@ A hierarchical configuration data layer for Ansible: layered data where the spec
 The unit of resolution. Identity is the filename stem of its file under `hosts/`; never a synthesized or declared name.
 _Avoid_: Node, AllNodes (DSC/Datum vocabulary, dropped).
 
+**Fact**:
+One top-level key of a host's own file, read before any layer is loaded and used to route the host: to render a chain address or the layout, to key an inventory group, and to supply `ansible_host`. All three read a fact as a scalar, so a fact whose value is a map, a list, or one of Reverie's three tags has nothing to stand as a path segment or a group name — tagged or not, it simply isn't usable there. It remains ordinary data on the host layer, merged and emitted like any other.
+
 **Source tree**:
 The host layer, the declared chain, and the optional defaults floor together — everything `reverie.yml` and its location define.
 

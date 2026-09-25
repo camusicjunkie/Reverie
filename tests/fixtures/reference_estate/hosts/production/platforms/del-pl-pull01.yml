@@ -6,3 +6,7 @@ tier: core
 baseline: server
 addr: 10.20.1.13
 description: "{{ reverie.role }} in {{ reverie.env }}"
+# A host file is a layer like any other, so it may carry data -- including
+# one of Reverie's own tags. This pull server is administered remotely and
+# has no console, so the feature its role layer installs leaves the list.
+windows_features: [!remove Web-Mgmt-Console]

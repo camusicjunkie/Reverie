@@ -6,6 +6,11 @@ Timestamps, binary, sets, ordered maps, NaN, and
 infinity are load errors rather than silently accepted, and anchors,
 aliases, and `<<` merge keys are forbidden outright.
 
+A second, permissive loader (`load_permissive`) sits beside the closed one
+for `enumerate`'s fact read, which runs before `load` and so must not fail
+a compile on anything `load` will report properly a phase later. It knows
+the three tags and enforces nothing else.
+
 Emission is pinned rather than left to a formatter's defaults: UTF-8 with
 no BOM, LF, block style, no line wrapping, two-space indent, a `---`
 document marker, sorted keys at every depth, and a timestamp-free
@@ -242,6 +247,58 @@ def _construct_secret(loader: yaml.SafeLoader, node: yaml.Node) -> Secret:
 
 
 _ClosedLoader.add_constructor(SECRET_TAG, _construct_secret)
+
+
+class TaggedFact:
+    """A host-file value `enumerate` saw carrying one of Reverie's own tags.
+
+    The fact parse never interprets a tagged value -- `load` is the one
+    authority on whether the tag is legal where it sits, and on what it
+    means. All this marker records is *that* the value is tagged, which is
+    enough for enumerate: none of the three tags yields something a chain
+    address, a group name, or an `ansible_host` could be built from.
+    """
+
+    __slots__ = ("tag",)
+
+    def __init__(self, tag: str):
+        self.tag = tag
+
+    def __repr__(self) -> str:
+        return self.tag
+
+
+class _FactLoader(yaml.SafeLoader):
+    """A SafeLoader that tolerates Reverie's tags instead of raising on them.
+
+    Deliberately not `_ClosedLoader`: this loader enforces none of the
+    closed-domain rules, because the phase it serves (enumerate, before
+    load has run) must not fail a compile on a value load.py will reject
+    a phase later with a proper, positioned diagnostic.
+    """
+
+
+def _construct_tagged_fact(loader: yaml.SafeLoader, node: yaml.Node) -> TaggedFact:
+    # The tagged node's content is never constructed -- not even for a
+    # scalar. Nothing downstream of the fact parse can use it, and leaving
+    # it unread keeps this loader free of any opinion about what is legal
+    # under a tag.
+    return TaggedFact(node.tag)
+
+
+for _tag in (REMOVE_TAG, VAULT_TAG, SECRET_TAG):
+    _FactLoader.add_constructor(_tag, _construct_tagged_fact)
+
+
+def load_permissive(text: str):
+    """Parse YAML text knowing Reverie's tags but enforcing nothing else.
+
+    For `enumerate`'s fact read only. Raises `yaml.YAMLError` on malformed
+    YAML; every tagged value constructs to a `TaggedFact` rather than
+    raising, so one tag costs only itself and never the file's other keys.
+    """
+
+    return yaml.load(text, Loader=_FactLoader)
 
 
 def _check_resolved_tag(tag: str, node: yaml.Node) -> None:
