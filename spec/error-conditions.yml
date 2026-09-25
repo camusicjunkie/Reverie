@@ -49,7 +49,7 @@
 - id: configure.missing_host_argument
   phase: configure
   fields: []
-  implemented: false
+  implemented: true
 - id: configure.unknown_strategy
   phase: configure
   fields: [file, key_path, strategy]
@@ -57,7 +57,7 @@
 - id: configure.missing_tuple_keys
   phase: configure
   fields: [file, key_path]
-  implemented: false
+  implemented: true
 - id: configure.ambiguous_specificity
   phase: configure
   fields: [file, key_path]
@@ -73,15 +73,15 @@
 - id: configure.unknown_entry_key
   phase: configure
   fields: [file, key]
-  implemented: false
+  implemented: true
 - id: configure.unexpected_tuple_keys
   phase: configure
   fields: [file, key_path]
-  implemented: false
+  implemented: true
 - id: configure.missing_defaults_directory
   phase: configure
   fields: [file]
-  implemented: false
+  implemented: true
 - id: configure.rsop_output_in_estate
   phase: configure
   fields: [path, tree]
@@ -93,7 +93,7 @@
 - id: configure.unexpected_output_flag
   phase: configure
   fields: []
-  implemented: false
+  implemented: true
 - id: configure.chain_template_illegal_expression
   phase: configure
   fields: [file, line]

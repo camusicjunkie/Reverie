@@ -16,18 +16,18 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.malformed_defaults` | file, defaults | yes |
 | `configure.malformed_layout` | file, layout | yes |
 | `configure.malformed_reverie_yml` | file, detail | yes |
-| `configure.missing_defaults_directory` | file | no |
-| `configure.missing_host_argument` | -- | no |
+| `configure.missing_defaults_directory` | file | yes |
+| `configure.missing_host_argument` | -- | yes |
 | `configure.missing_source_argument` | -- | yes |
 | `configure.missing_strategy` | file, key_path | yes |
-| `configure.missing_tuple_keys` | file, key_path | no |
+| `configure.missing_tuple_keys` | file, key_path | yes |
 | `configure.no_secret_backend` | -- | yes |
 | `configure.reverie_yml_not_found` | file | yes |
 | `configure.rsop_output_in_estate` | path, tree | yes |
 | `configure.rsop_output_parent_missing` | path | yes |
-| `configure.unexpected_output_flag` | -- | no |
-| `configure.unexpected_tuple_keys` | file, key_path | no |
-| `configure.unknown_entry_key` | file, key | no |
+| `configure.unexpected_output_flag` | -- | yes |
+| `configure.unexpected_tuple_keys` | file, key_path | yes |
+| `configure.unknown_entry_key` | file, key | yes |
 | `configure.unknown_strategy` | file, key_path, strategy | yes |
 
 ## enumerate

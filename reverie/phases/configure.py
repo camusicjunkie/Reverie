@@ -19,6 +19,16 @@ _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 # The closed set of seven merge strategies (CONTEXT.md "Strategy").
 _STRATEGIES = {"first", "shallow", "deep", "append", "unique", "unique_tuple", "deep_tuple"}
 
+# The two strategies whose element identity comes from declared tuple_keys
+# rather than the whole value -- the only two for which tuple_keys means
+# anything at all.
+_TUPLE_STRATEGIES = {"unique_tuple", "deep_tuple"}
+
+# A `merge:` entry written in long form is exactly `{strategy, tuple_keys}`
+# (CONTEXT.md "Merge policy") -- anything else is a typo, not an extension
+# point (ADR 0005).
+_MERGE_ENTRY_KEYS = {"strategy", "tuple_keys"}
+
 
 def _get_child_node(node: yaml.Node, key: str) -> yaml.Node | None:
     if not isinstance(node, yaml.MappingNode):
@@ -96,6 +106,23 @@ class SourceConfig:
     ansible_host_fact: str | None
 
 
+def check_host_argument(host: str | None, collector: DiagnosticCollector) -> None:
+    """`rsop`'s `<host>` is domain-meaningful, so its absence is a named
+    condition rather than an argument-parser message (ADR 0009's closed-list
+    rule) -- the mirror of `configure.missing_source_argument`."""
+
+    if not host:
+        collector.add("configure.missing_host_argument")
+
+
+def check_no_output_flag(output: str | None, collector: DiagnosticCollector) -> None:
+    """`--output` belongs to `rsop` alone; `compile`'s destination is the
+    source tree's owned directories, never a caller-chosen path."""
+
+    if output is not None:
+        collector.add("configure.unexpected_output_flag")
+
+
 def configure(source_arg: str | None) -> SourceConfig:
     collector = DiagnosticCollector(PHASE)
 
@@ -159,16 +186,34 @@ def configure(source_arg: str | None) -> SourceConfig:
     if defaults is not None and not isinstance(defaults, str):
         collector.add("configure.malformed_defaults", file=str(reverie_yml), defaults=defaults)
         defaults = None
+    elif isinstance(defaults, str) and not (root / defaults).parent.is_dir():
+        # The declared floor's *directory* is a configure-phase concern: a
+        # `defaults:` address whose directory is absent is a reverie.yml
+        # that describes a tree it isn't rooted in. The floor file itself
+        # missing from an existing directory stays `enumerate`'s
+        # missing_layer_file, same as any other addressed-but-absent layer.
+        collector.add("configure.missing_defaults_directory", file=str(reverie_yml))
+        defaults = None
 
     merge_raw = raw.get("merge", {}) or {}
     merge_policies: list[MergePolicy] = []
     if isinstance(merge_raw, dict):
         for pattern, entry in merge_raw.items():
             tuple_keys = None
+            declares_tuple_keys = False
             if isinstance(entry, str):
                 strategy = entry
-            elif isinstance(entry, dict) and isinstance(entry.get("strategy"), str):
+            elif isinstance(entry, dict):
+                for key in entry:
+                    if key not in _MERGE_ENTRY_KEYS:
+                        collector.add("configure.unknown_entry_key", file=str(reverie_yml), key=key)
+
+                if not isinstance(entry.get("strategy"), str):
+                    collector.add("configure.missing_strategy", file=str(reverie_yml), key_path=pattern)
+                    continue
+
                 strategy = entry["strategy"]
+                declares_tuple_keys = "tuple_keys" in entry
                 raw_tuple_keys = entry.get("tuple_keys")
                 if isinstance(raw_tuple_keys, list) and all(isinstance(k, str) for k in raw_tuple_keys):
                     tuple_keys = tuple(raw_tuple_keys)
@@ -180,6 +225,14 @@ def configure(source_arg: str | None) -> SourceConfig:
                 collector.add(
                     "configure.unknown_strategy", file=str(reverie_yml), key_path=pattern, strategy=strategy
                 )
+                continue
+
+            if strategy in _TUPLE_STRATEGIES and tuple_keys is None:
+                collector.add("configure.missing_tuple_keys", file=str(reverie_yml), key_path=pattern)
+                continue
+
+            if strategy not in _TUPLE_STRATEGIES and declares_tuple_keys:
+                collector.add("configure.unexpected_tuple_keys", file=str(reverie_yml), key_path=pattern)
                 continue
 
             merge_policies.append(MergePolicy(pattern=pattern, strategy=strategy, tuple_keys=tuple_keys))

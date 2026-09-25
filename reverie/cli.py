@@ -15,10 +15,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     compile_parser = subparsers.add_parser("compile")
     compile_parser.add_argument("source", nargs="?", default=None)
+    # Accepted so a misdirected `--output` reaches Reverie's own closed list
+    # as configure.unexpected_output_flag, rather than argparse rejecting it
+    # as an unknown flag.
+    compile_parser.add_argument("--output", dest="output", default=None)
 
     rsop_parser = subparsers.add_parser("rsop")
-    rsop_parser.add_argument("source")
-    rsop_parser.add_argument("host")
+    rsop_parser.add_argument("source", nargs="?", default=None)
+    rsop_parser.add_argument("host", nargs="?", default=None)
     rsop_parser.add_argument("--output", dest="output", default=None)
 
     return parser
@@ -39,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.buffer.write(result.text.encode("utf-8"))
         return 0
 
-    result = compile_source(args.source)
+    result = compile_source(args.source, args.output)
     if result.diagnostics:
         print(json.dumps([d.to_dict() for d in result.diagnostics], indent=2), file=sys.stderr)
         return 1

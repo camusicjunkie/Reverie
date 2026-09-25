@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from reverie.errors import Diagnostic, PhaseFailed
+from reverie.errors import Diagnostic, DiagnosticCollector, PhaseFailed
 from reverie.phases import configure as configure_phase
 from reverie.phases import emit as emit_phase
 from reverie.phases import enumerate as enumerate_phase
@@ -26,10 +26,14 @@ class CompileResult:
     warnings: list[Diagnostic]
 
 
-def compile_source(source_arg: str | None) -> CompileResult:
+def compile_source(source_arg: str | None, output: str | None = None) -> CompileResult:
     """Run the full compile pipeline."""
 
     try:
+        flag_collector = DiagnosticCollector("configure")
+        configure_phase.check_no_output_flag(output, flag_collector)
+        flag_collector.raise_if_any()
+
         config = configure_phase.configure(source_arg)
         enumerated = enumerate_phase.enumerate_hosts(config)
         loaded = load_phase.load_layers(enumerated.hosts, config.secret_backend)

@@ -192,7 +192,7 @@ def compute_rsop(host: LoadedHost, merge_policies: list[MergePolicy]) -> dict[st
     return records
 
 
-def rsop_source(source_arg: str | None, host: str, output: str | None) -> RsopResult:
+def rsop_source(source_arg: str | None, host: str | None, output: str | None) -> RsopResult:
     """Run configure/enumerate/load/validate (exactly as `compile` does, so
     the same diagnostics fire the same way) and render the target host's
     RSOP document without ever running resolve or emit."""
@@ -200,9 +200,10 @@ def rsop_source(source_arg: str | None, host: str, output: str | None) -> RsopRe
     try:
         config: SourceConfig = configure_phase.configure(source_arg)
 
-        output_collector = DiagnosticCollector("configure")
-        _check_output_path(output, config.root, output_collector)
-        output_collector.raise_if_any()
+        argument_collector = DiagnosticCollector("configure")
+        configure_phase.check_host_argument(host, argument_collector)
+        _check_output_path(output, config.root, argument_collector)
+        argument_collector.raise_if_any()
 
         enumerated = enumerate_phase.enumerate_hosts(config)
 
