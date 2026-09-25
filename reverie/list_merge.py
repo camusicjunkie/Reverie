@@ -70,6 +70,68 @@ def has_vault_comparison(elements: list[object], strategy: str, tuple_keys: tupl
     )
 
 
+def merges_elements_as_maps(strategy: str) -> bool:
+    """Whether `strategy` merges the elements it matches as maps.
+
+    Only `deep_tuple` does. `unique_tuple` keeps the more specific element
+    whole, and `append`/`unique` never look inside an element at all -- so
+    `deep_tuple` alone gives the keys of its elements real key paths (the
+    list's own path, extended), and a merge policy addressed there binds to
+    something only under it (issue #47).
+    """
+
+    return strategy == "deep_tuple"
+
+
+def element_groups(
+    layer_lists: list[list[object]],
+    strategy: str,
+    tuple_keys: tuple[str, ...] | None,
+) -> list[list[object]]:
+    """The kept elements of a list merge, each as the group of contributions
+    that count as "the same element" -- most-general-first within a group,
+    the groups themselves in the order the merge emits them.
+
+    This is the whole of the ordering rule above, and the whole of
+    `!remove`'s list-element semantics, in one place: a `!remove` holds no
+    position and reaches only *downward*, matching elements contributed by
+    strictly more general layers.
+
+    `resolve.merge_lists` turns each group into one element (for
+    `deep_tuple`, by merging it as a map), and `validate` walks the same
+    groups to see the key paths that merge will visit -- so the two agree
+    by construction rather than by coincidence (issue #47). A group of one
+    is never merged at all, under any strategy: its lone element is already
+    the answer, so nothing beneath it is ever visited.
+    """
+
+    removal_targets: list[object] = []
+    groups: list[list[object]] = []
+
+    for layer_list in reversed(layer_lists):  # most-specific-first
+        layer_removals = [element.value for element in layer_list if isinstance(element, Remove)]
+
+        for element in layer_list:
+            if isinstance(element, Remove):
+                continue  # contributes a match, not an element -- holds no position
+            if any(elements_equal(element, target, strategy, tuple_keys) for target in removal_targets):
+                continue
+            # A group's representative is its most specific element, the
+            # one a comparing strategy keeps.
+            group = next(
+                (existing for existing in groups if elements_equal(element, existing[-1], strategy, tuple_keys)),
+                None,
+            )
+            if group is not None:
+                group.insert(0, element)  # more general than everything already in it
+            else:
+                groups.append([element])
+
+        removal_targets.extend(layer_removals)
+
+    return groups
+
+
 def has_map_element(layer_lists: list[list[object]]) -> bool:
     """Whether any element across `layer_lists` (raw, `Remove` included) is a map."""
 

@@ -17,6 +17,9 @@ merge:
   local_groups/groups:
     strategy: deep_tuple
     tuple_keys: [name]
+  # Addressed *inside* the elements `deep_tuple` folds together, so every
+  # layer's membership accumulates instead of the most specific winning.
+  local_groups/groups/members: append
   files_and_folders: deep
   files_and_folders/items:
     strategy: unique_tuple

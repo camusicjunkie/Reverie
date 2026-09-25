@@ -34,8 +34,11 @@ _Avoid_: lookup_options (Hiera's name by way of Datum, for an operation Reverie 
 **Strategy**:
 The operation a merge policy performs on the shape it binds to. The closed set is seven: `first`, `shallow`, `deep`, `append`, `unique`, `unique_tuple`, `deep_tuple`. A strategy is total on its own shape and most-specific-wins on every other.
 
+**Element group**:
+The elements of a merged list that a strategy counts as the same element, gathered across every contributing layer — the unit a list merge emits one element for. A group of one is never merged: its lone element is already the answer. Under `deep_tuple` a group of two or more is *folded*: merged as a map at the list's own key path, so a policy addressed there governs it. The fold is one merge over the whole group, never a chain of pairwise ones, so a `!remove` inside a folded element reaches every more general contributor to it, exactly as it would anywhere else.
+
 **Key path**:
-A single `/`-separated glob (`*` one segment, `**` zero or more, no regex, no list indices) addressing into resolved data. Shared syntax for merge policies and declared secret keys.
+A single `/`-separated glob (`*` one segment, `**` zero or more, no regex, no list indices) addressing into resolved data. Shared syntax for merge policies and declared secret keys. Having no list indices, a list's own path is also the path its elements' keys hang from — real only under `deep_tuple`, the one strategy that merges its elements as maps. Beneath any other list strategy nothing is merged there, so a policy addressed inside one binds to nothing and is reported.
 
 **Deferred Jinja**:
 A `{{ … }}` template inside a data value, passed through as inert literal text for Ansible to evaluate at play time. Reverie never parses it, only balance-checks the braces.

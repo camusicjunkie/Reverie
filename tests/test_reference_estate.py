@@ -7,8 +7,9 @@ defaults floor, a non-empty layout, merge policies at four specificities
 over two subtrees, both flavours of list-of-maps merge, `!remove` of both
 a map key and a list element (one of them from a host file's own data, so
 the estate covers issue #46), `!vault` and `!secret` under a declared
-`secrets:` path, deferred Jinja riding through inert, and inventory
-grouping over six facts.
+`secrets:` path, a policy addressed inside a `deep_tuple`-merged element
+(issue #47), deferred Jinja riding through inert, and inventory grouping
+over six facts.
 
 A passing case throughout -- it asserts no diagnostics, so the registry's
 fixture-coverage check is untouched.
@@ -79,11 +80,15 @@ EXPECTED = {
                 {"path": "C:\\Estate", "type": "directory"},
             ]
         },
+        # `local_groups/groups/members` is declared `append` *inside* the
+        # elements `deep_tuple` folds together, so the role's membership
+        # accumulates onto the floor's rather than replacing it -- while
+        # `credential`, undeclared, is a plain most-specific-wins contest.
         "local_groups": {
             "groups": [
                 {
                     "name": "Administrators",
-                    "members": ["SG-FileServer-Admins"],
+                    "members": ["SG-FileServer-Admins", "SG-Estate-Admins"],
                     "credential": CREDENTIAL,
                 },
                 {"name": "Backup Operators", "members": ["SG-Backup-Operators"]},
@@ -199,7 +204,7 @@ EXPECTED = {
             "groups": [
                 {
                     "name": "Administrators",
-                    "members": ["SG-DBA-Admins"],
+                    "members": ["SG-DBA-Admins", "SG-Data-Admins", "SG-Estate-Admins"],
                     "credential": CREDENTIAL,
                 }
             ]
@@ -232,7 +237,7 @@ EXPECTED = {
             "groups": [
                 {
                     "name": "Administrators",
-                    "members": ["SG-DBA-Admins"],
+                    "members": ["SG-DBA-Admins", "SG-Data-Admins", "SG-Estate-Admins"],
                     "credential": CREDENTIAL,
                 }
             ]
@@ -269,7 +274,7 @@ EXPECTED = {
             "groups": [
                 {
                     "name": "Administrators",
-                    "members": ["SG-FileServer-Admins"],
+                    "members": ["SG-FileServer-Admins", "SG-Estate-Admins"],
                     "credential": CREDENTIAL,
                 },
                 {"name": "Backup Operators", "members": ["SG-Backup-Operators"]},
@@ -342,7 +347,7 @@ EXPECTED = {
             "groups": [
                 {
                     "name": "Administrators",
-                    "members": ["SG-DBA-Admins"],
+                    "members": ["SG-DBA-Admins", "SG-Data-Admins", "SG-Estate-Admins"],
                     "credential": CREDENTIAL,
                 }
             ]

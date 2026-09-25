@@ -35,15 +35,43 @@ PHASE = "validate"
 _MAP_STRATEGIES = merge_plan.MAP_STRATEGIES
 
 
-def _walk(data: dict, prefix: str = "") -> list[tuple[str, object]]:
-    """Every (key_path, value) pair in `data`, at every depth (map keys only)."""
+def _folds_elements_as_maps(merge_policies: list[MergePolicy], key_path: str) -> bool:
+    """Whether a list at `key_path` is declared under a strategy that merges
+    its matched elements as maps -- see `list_merge.merges_elements_as_maps`."""
+
+    policy = keypath.winner(merge_policies, key_path)
+    return policy is not None and list_merge.merges_elements_as_maps(policy.strategy)
+
+
+def _walk(data: dict, merge_policies: list[MergePolicy], prefix: str = "") -> list[tuple[str, object]]:
+    """Every (key_path, value) pair in one layer's `data`, at every depth.
+
+    Map keys, plus the keys of the map elements of a `deep_tuple`-declared
+    list -- at the list's own key path, since that is where `resolve` folds
+    those elements together (issue #47). A `!remove` element is not
+    descended into: it contributes a match, not data, and `resolve` never
+    merges its interior.
+
+    This is raw per-layer key-path text, deliberately broader than the
+    binding decisions `_decisions_for_host` computes: it answers "does any
+    walked layer touch this path at all", so a policy under a shadowed
+    ancestor still counts as matching something and reports as a strategy
+    that never applies rather than as a pattern matching nothing. One layer
+    alone has no cross-layer element matching either, so the paths inside
+    its elements pool per key path rather than per element -- the checks
+    over them are correspondingly path-keyed, which errs towards silence.
+    """
 
     entries: list[tuple[str, object]] = []
     for key, value in data.items():
         path = f"{prefix}/{key}" if prefix else key
         entries.append((path, value))
         if isinstance(value, dict):
-            entries.extend(_walk(value, path))
+            entries.extend(_walk(value, merge_policies, path))
+        elif isinstance(value, list) and _folds_elements_as_maps(merge_policies, path):
+            for element in value:
+                if isinstance(element, dict):
+                    entries.extend(_walk(element, merge_policies, path))
     return entries
 
 
@@ -57,7 +85,7 @@ def _check_removals(host: LoadedHost, collector: DiagnosticCollector, merge_poli
     seen_list_elements: dict[str, list[object]] = {}
 
     for _layer, layer_data in host.layers:
-        for path, value in _walk(layer_data):
+        for path, value in _walk(layer_data, merge_policies):
             if isinstance(value, Remove):
                 if path not in seen_paths:
                     collector.add("validate.remove_matches_nothing")
@@ -102,7 +130,7 @@ def _check_duplicates_in_layer(
             if defaults_address is not None and layer.address == defaults_address
             else "validate.duplicate_in_layer"
         )
-        for path, value in _walk(layer_data):
+        for path, value in _walk(layer_data, merge_policies):
             if not isinstance(value, list):
                 continue
             policy = keypath.winner(merge_policies, path)
@@ -115,7 +143,12 @@ def _check_duplicates_in_layer(
                     break  # one report per key path is enough; keep scanning the layer's other paths
 
 
-def _check_secrets(host: LoadedHost, collector: DiagnosticCollector, secrets: list[str]) -> None:
+def _check_secrets(
+    host: LoadedHost,
+    collector: DiagnosticCollector,
+    secrets: list[str],
+    merge_policies: list[MergePolicy],
+) -> None:
     """A plaintext value at a declared secret key path, in any walked layer.
 
     Checked over every layer, not just the winner -- a non-winning layer's
@@ -127,7 +160,7 @@ def _check_secrets(host: LoadedHost, collector: DiagnosticCollector, secrets: li
         return
 
     for layer, layer_data in host.layers:
-        for path, value in _walk(layer_data):
+        for path, value in _walk(layer_data, merge_policies):
             if isinstance(value, (dict, list, Remove)):
                 continue
             if not isinstance(value, (Vault, Secret)) and any(keypath.matches(pattern, path) for pattern in secrets):
@@ -154,10 +187,11 @@ def _tuple_keys_missing(layer_lists: list[list], tuple_keys: tuple[str, ...] | N
 def _decisions_for_host(host: LoadedHost, merge_policies: list[MergePolicy]) -> list[merge_plan.BindingDecision]:
     """Every binding decision `resolve` would compute while merging this
     host, in the same order (same ambient-strategy inheritance, same
-    recursion into map-shaped, strategy-applied children only) -- so a
-    policy shadowed under an ancestor's `first` (never reached during
-    resolve) is invisible here too, and a mis-shape on this host alone
-    can't be masked by another host's correctly-shaped contribution."""
+    recursion into map-shaped, strategy-applied children only, same fold of
+    each `deep_tuple`-matched element group) -- so a policy shadowed under
+    an ancestor's `first` (never reached during resolve) is invisible here
+    too, and a mis-shape on this host alone can't be masked by another
+    host's correctly-shaped contribution."""
 
     decisions: list[merge_plan.BindingDecision] = []
 
@@ -170,6 +204,14 @@ def _decisions_for_host(host: LoadedHost, merge_policies: list[MergePolicy]) -> 
             decisions.append(decision)
             if decision.applied and decision.strategy in _MAP_STRATEGIES:
                 walk(child_path, decision.effective, decision.children_ambient)
+            elif decision.applied and list_merge.merges_elements_as_maps(decision.strategy):
+                # `resolve.merge_lists` folds each group of matched elements
+                # into one via a map merge at this same key path -- so those
+                # folds' children are decisions this host really computes.
+                tuple_keys = decision.policy.tuple_keys if decision.policy else None
+                for group in list_merge.element_groups(decision.effective, decision.strategy, tuple_keys):
+                    if len(group) > 1:  # a lone element survives whole, unmerged
+                        walk(child_path, group, "first")
 
     walk("", [layer_data for _layer, layer_data in host.layers], "first")
     return decisions
@@ -187,12 +229,12 @@ def validate(
     for host in loaded_hosts:
         _check_removals(host, collector, merge_policies)
         _check_duplicates_in_layer(host, collector, merge_policies, defaults_address)
-        _check_secrets(host, collector, secrets)
+        _check_secrets(host, collector, secrets, merge_policies)
 
     values_by_path: dict[str, list[object]] = {}
     for host in loaded_hosts:
         for _layer, layer_data in host.layers:
-            for path, value in _walk(layer_data):
+            for path, value in _walk(layer_data, merge_policies):
                 values_by_path.setdefault(path, []).append(value)
 
     matched_patterns: set[str] = set()

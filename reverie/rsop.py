@@ -6,8 +6,12 @@ Generated on demand, never committed, and a pure function of
 `(source tree, host)` -- it never reads the artifact and works correctly
 even in a checkout where `compile` has never been run.
 
-Coverage is total: every key path any walked layer touches gets a record,
-intermediate maps included. Each record carries exactly one of `value:`,
+Coverage is every key path any walked layer touches through its maps,
+intermediate maps included -- but not, yet, the paths a `deep_tuple` fold
+merges *inside* a list's elements: a record is keyed by key path, and a
+list's elements all share one, so attributing them needs an addressing
+notion this document doesn't have (issue #47 resolution). Each record
+carries exactly one of `value:`,
 `redacted:`, `removed: true`, plus the `policy` that governed it (the
 declared strategy/pattern, or the ambient one it inherited) and its
 `contributors`, most-specific-first.

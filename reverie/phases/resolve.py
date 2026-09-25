@@ -26,7 +26,6 @@ from typing import Any
 from reverie import list_merge, merge_plan
 from reverie.phases.configure import MergePolicy
 from reverie.phases.load import LoadedHost
-from reverie.yaml_io import Remove
 
 PHASE = "resolve"
 
@@ -75,11 +74,14 @@ def merge_lists(
 ) -> list[Any]:
     """Merge one key path's per-layer lists under a list strategy.
 
-    Most-specific-first, keep-first-occurrence, clustered by layer -- see
-    `reverie.list_merge`'s module docstring. `deep_tuple` additionally
-    folds each matched general-layer element into the kept (more
-    specific) one via a normal map merge, at this same key path so any
-    nested policy declared under it (e.g. `items/tags`) still applies.
+    Most-specific-first, keep-first-occurrence, clustered by layer -- the
+    grouping itself is `list_merge.element_groups`. `deep_tuple`
+    additionally folds each group of matched elements together via a
+    normal map merge, at this same key path so any nested policy declared
+    under it (e.g. `items/tags`) still applies. The fold is one merge over
+    the whole group, not a chain of pairwise ones, so a nested `!remove`
+    in a matched element reaches every more general contributor to it --
+    the same reach it has anywhere else.
 
     Public (not `_`-prefixed): `reverie.rsop` calls this directly so a
     list-shaped key path's RSOP value stays byte-identical to what
@@ -87,30 +89,17 @@ def merge_lists(
     semantics against a private symbol.
     """
 
-    removal_targets: list[Any] = []
-    kept: list[Any] = []
+    groups = list_merge.element_groups(layer_lists, strategy, tuple_keys)
 
-    for layer in reversed(layer_lists):  # most-specific-first
-        layer_removals = [element.value for element in layer if isinstance(element, Remove)]
+    if not list_merge.merges_elements_as_maps(strategy):
+        # unique / unique_tuple: the kept (more specific) element survives
+        # whole; under `append` every element is its own group anyway.
+        return [group[-1] for group in groups]
 
-        for element in layer:
-            if isinstance(element, Remove):
-                continue  # contributes a match, not an element -- holds no position
-            if any(list_merge.elements_equal(element, target, strategy, tuple_keys) for target in removal_targets):
-                continue
-            match = next(
-                (i for i, existing in enumerate(kept) if list_merge.elements_equal(element, existing, strategy, tuple_keys)),
-                None,
-            )
-            if match is not None:
-                if strategy == "deep_tuple":
-                    kept[match] = _merge_maps(key_path, [element, kept[match]], merge_policies, "first")
-                continue  # unique / unique_tuple: the kept (more specific) element survives whole
-            kept.append(element)
-
-        removal_targets.extend(layer_removals)
-
-    return kept
+    return [
+        _merge_maps(key_path, group, merge_policies, "first") if len(group) > 1 else group[-1]
+        for group in groups
+    ]
 
 
 def _merge_maps(
