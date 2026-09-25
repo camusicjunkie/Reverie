@@ -128,19 +128,19 @@
 - id: load.forbidden_alias
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.duplicate_key
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.non_string_key
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.malformed_deferred_template
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.empty_secret_address
   phase: load
   fields: []
@@ -148,23 +148,23 @@
 - id: load.key_contains_separator
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.multiple_documents
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.reserved_name_key
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.illegal_fact_name
   phase: load
   fields: [file, line]
-  implemented: false
+  implemented: true
 - id: load.duplicate_host_name
   phase: load
   fields: []
-  implemented: false
+  implemented: true
 
 # --- enumerate -----------------------------------------------------------
 

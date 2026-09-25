@@ -14,6 +14,7 @@ from reverie.yaml_io import (
     EmptySecretAddressError,
     Remove,
     Secret,
+    SourceConditionError,
     UnknownTagError,
     ValueDomainError,
     load_closed_domain,
@@ -44,6 +45,7 @@ class LoadedHost:
 def load_layers(plans: list[HostPlan], secret_backend: SecretBackend | None = None) -> list[LoadedHost]:
     collector = DiagnosticCollector(PHASE)
     cache: dict[Path, dict | None] = {}
+    host_files = {plan.file for plan in plans}
 
     def read(layer: LayerRef) -> dict | None:
         if layer.path in cache:
@@ -51,7 +53,10 @@ def load_layers(plans: list[HostPlan], secret_backend: SecretBackend | None = No
 
         text = layer.path.read_text(encoding="utf-8")
         try:
-            data = load_closed_domain(text)
+            data = load_closed_domain(text, host_file=layer.path in host_files)
+        except SourceConditionError as exc:
+            collector.add(exc.condition, file=str(layer.path), line=exc.line)
+            data = None
         except ValueDomainError as exc:
             collector.add(
                 "load.value_out_of_domain",
@@ -93,6 +98,14 @@ def load_layers(plans: list[HostPlan], secret_backend: SecretBackend | None = No
 
         cache[layer.path] = data
         return data
+
+    seen_names: set[str] = set()
+    for plan in plans:
+        # A host's identity is its filename stem (CONTEXT.md "Host"), so two
+        # files at different depths under hosts/ can claim the same host.
+        if plan.name in seen_names:
+            collector.add("load.duplicate_host_name")
+        seen_names.add(plan.name)
 
     loaded: list[LoadedHost] = []
     for plan in plans:

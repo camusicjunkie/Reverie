@@ -53,17 +53,17 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | id | fields | implemented |
 | --- | --- | --- |
 | `load.document_not_a_map` | file, line | yes |
-| `load.duplicate_host_name` | -- | no |
-| `load.duplicate_key` | file, line | no |
+| `load.duplicate_host_name` | -- | yes |
+| `load.duplicate_key` | file, line | yes |
 | `load.empty_secret_address` | -- | yes |
-| `load.forbidden_alias` | file, line | no |
-| `load.illegal_fact_name` | file, line | no |
+| `load.forbidden_alias` | file, line | yes |
+| `load.illegal_fact_name` | file, line | yes |
 | `load.invalid_yaml` | file, line, detail | yes |
-| `load.key_contains_separator` | file, line | no |
-| `load.malformed_deferred_template` | file, line | no |
-| `load.multiple_documents` | file, line | no |
-| `load.non_string_key` | file, line | no |
-| `load.reserved_name_key` | file, line | no |
+| `load.key_contains_separator` | file, line | yes |
+| `load.malformed_deferred_template` | file, line | yes |
+| `load.multiple_documents` | file, line | yes |
+| `load.non_string_key` | file, line | yes |
+| `load.reserved_name_key` | file, line | yes |
 | `load.unknown_tag` | file, line, tag | yes |
 | `load.value_out_of_domain` | file, line, kind | yes |
 

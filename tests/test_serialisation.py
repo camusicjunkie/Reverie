@@ -87,7 +87,7 @@ def test_anchors_and_aliases_are_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="anchor_or_alias")
+    assert_diagnostic(diagnostics, "load.forbidden_alias")
 
 
 def test_merge_key_via_alias_is_rejected(fixture_dir):
@@ -100,8 +100,9 @@ def test_merge_key_via_alias_is_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    # The alias (`*base`) is itself forbidden, ahead of the merge key check.
-    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="anchor_or_alias")
+    # Anchor, alias, and `<<` are one condition -- whichever the walk meets
+    # first, the finding is the same.
+    assert_diagnostic(diagnostics, "load.forbidden_alias")
 
 
 def test_merge_key_via_literal_mapping_is_rejected(fixture_dir):
@@ -116,7 +117,7 @@ def test_merge_key_via_literal_mapping_is_rejected(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="merge_key")
+    assert_diagnostic(diagnostics, "load.forbidden_alias")
 
 
 def test_unknown_tag_is_rejected(fixture_dir):
