@@ -34,17 +34,17 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 
 | id | fields | implemented |
 | --- | --- | --- |
-| `enumerate.address_escapes_root` | host, pattern | no |
+| `enumerate.address_escapes_root` | host, pattern | yes |
 | `enumerate.group_host_name_collision` | -- | yes |
 | `enumerate.group_name_collision` | -- | yes |
 | `enumerate.host_layout_violation` | host | yes |
-| `enumerate.host_walks_no_layers` | host | no |
-| `enumerate.illegal_fact_value` | host, key_path | no |
+| `enumerate.host_walks_no_layers` | host | yes |
+| `enumerate.illegal_fact_value` | host, key_path | yes |
 | `enumerate.illegal_group_name` | host, fact, value | yes |
 | `enumerate.missing_ansible_host_fact` | -- | yes |
 | `enumerate.missing_host_fact` | host, chain_entry, fact | yes |
 | `enumerate.missing_layer_file` | host, chain_entry, rendered_address | yes |
-| `enumerate.non_scalar_fact` | host, key_path | no |
+| `enumerate.non_scalar_fact` | host, key_path | yes |
 | `enumerate.rsop_host_not_found` | -- | yes |
 | `enumerate.ungrounded_group_fact` | -- | yes |
 

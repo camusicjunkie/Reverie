@@ -69,27 +69,71 @@ def _has_fact(facts: dict, name: str) -> bool:
     return name in facts and facts[name] is not None
 
 
-class _MissingFact(Exception):
-    def __init__(self, fact: str):
+class _FactError(Exception):
+    """A chain/layout template's reference to a host fact that can't render.
+
+    `condition` is the `enumerate.*` id; `fact` is the referenced name,
+    which is also the fact's key path (facts are the host file's own
+    top-level keys, so the two coincide).
+    """
+
+    def __init__(self, condition: str, fact: str):
+        self.condition = condition
         self.fact = fact
+
+
+class _MissingFact(_FactError):
+    def __init__(self, fact: str):
+        super().__init__("enumerate.missing_host_fact", fact)
+
+
+# A rendered fact value stands in for exactly one path segment, so it can
+# carry no separator of either flavour and can't be a relative-path token
+# or empty -- all four would let a fact restructure the address rather
+# than fill a hole in it.
+_ILLEGAL_SEGMENTS = {"", ".", ".."}
 
 
 def _render_chain_address(address: str, host_facts: dict) -> str:
     """Render a chain address against a host's own facts.
 
-    Raises `_MissingFact` if the address references a fact the host
-    doesn't declare -- distinct from the rendered address then pointing
-    at a file that doesn't exist ("no such fact" vs "no such file" must
-    stay distinguishable, per CONTEXT.md's "Layer" entry).
+    Raises `_FactError` if the address references a fact the host doesn't
+    declare, whose value isn't a scalar, or whose value can't stand as a
+    path segment. "No such fact" stays distinct from the rendered address
+    then pointing at a file that doesn't exist, per CONTEXT.md's "Layer".
     """
 
     def substitute(match: re.Match) -> str:
         fact = match.group(1)
         if fact not in host_facts:
             raise _MissingFact(fact)
-        return str(host_facts[fact])
+
+        value = host_facts[fact]
+        if isinstance(value, (dict, list)):
+            raise _FactError("enumerate.non_scalar_fact", fact)
+
+        rendered = str(value)
+        if rendered in _ILLEGAL_SEGMENTS or "/" in rendered or "\\" in rendered:
+            raise _FactError("enumerate.illegal_fact_value", fact)
+        return rendered
 
     return _TEMPLATE_VAR.sub(substitute, address)
+
+
+def _escapes_root(root: Path, rendered: str) -> bool:
+    """Whether `rendered` lands outside the source tree.
+
+    Every directory is reachable only through the chain -- there are no
+    absolute or cross-tree references (ADR 0003's purity rule), so an
+    address that climbs out of the root is rejected rather than followed.
+    """
+
+    candidate = Path(rendered)
+    if candidate.is_absolute():
+        return True
+    resolved = (root / candidate).resolve()
+    root_resolved = root.resolve()
+    return resolved != root_resolved and root_resolved not in resolved.parents
 
 
 def _load_host_facts(host_file: Path) -> dict:
@@ -130,6 +174,9 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
                     fact=exc.fact,
                 )
                 rendered_layout = None
+            except _FactError as exc:
+                collector.add(exc.condition, host=name, key_path=exc.fact)
+                rendered_layout = None
         else:
             rendered_layout = ""
 
@@ -157,6 +204,9 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
             try:
                 rendered = _render_chain_address(entry.address, host_facts)
             except _MissingFact as exc:
+                # `optional: true` excuses an absent *fact*, never an absent
+                # file -- and never a fact that is present but unusable, so
+                # the two _FactError conditions below aren't excused by it.
                 if not entry.optional:
                     collector.add(
                         "enumerate.missing_host_fact",
@@ -164,6 +214,13 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
                         chain_entry=entry.address,
                         fact=exc.fact,
                     )
+                continue
+            except _FactError as exc:
+                collector.add(exc.condition, host=name, key_path=exc.fact)
+                continue
+
+            if _escapes_root(config.root, rendered):
+                collector.add("enumerate.address_escapes_root", host=name, pattern=entry.address)
                 continue
 
             layer_path = config.root / rendered
@@ -177,6 +234,12 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
                     )
                 continue
             layers.append(LayerRef(address=rendered, path=layer_path))
+
+        if not layers:
+            # Nothing beneath the host's own file: the hierarchy contributed
+            # nothing, so the host is a flat vars file wearing Reverie's
+            # output shape rather than a composed one.
+            collector.add("enumerate.host_walks_no_layers", host=name)
 
         host_address = str(host_file.relative_to(config.root)).replace("\\", "/")
         layers.append(LayerRef(address=host_address, path=host_file))

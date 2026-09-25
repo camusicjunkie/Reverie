@@ -183,7 +183,7 @@
 - id: enumerate.host_walks_no_layers
   phase: enumerate
   fields: [host]
-  implemented: false
+  implemented: true
 - id: enumerate.illegal_group_name
   phase: enumerate
   fields: [host, fact, value]
@@ -199,15 +199,15 @@
 - id: enumerate.non_scalar_fact
   phase: enumerate
   fields: [host, key_path]
-  implemented: false
+  implemented: true
 - id: enumerate.illegal_fact_value
   phase: enumerate
   fields: [host, key_path]
-  implemented: false
+  implemented: true
 - id: enumerate.address_escapes_root
   phase: enumerate
   fields: [host, pattern]
-  implemented: false
+  implemented: true
 - id: enumerate.rsop_host_not_found
   phase: enumerate
   fields: []
