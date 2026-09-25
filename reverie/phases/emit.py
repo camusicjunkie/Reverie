@@ -138,6 +138,15 @@ def emit(config: SourceConfig, hosts: list[ResolvedHost], host_plans: list[HostP
 
     ansible_host_by_name = {plan.name: plan.ansible_host for plan in host_plans}
 
+    # An internal consistency guard, not a source-tree fault: every host
+    # enumerate planned must be a host resolve produced, and vice versa.
+    # Unreachable through the CLI (load.duplicate_host_name catches the one
+    # source-level way the sets can diverge), and kept as defense in depth
+    # against a future phase silently dropping or inventing a host.
+    if {host.name for host in hosts} != set(ansible_host_by_name):
+        collector.add("emit.host_set_mismatch")
+        collector.raise_if_any()
+
     planned_host_files = {f"{host.name}.yml": _host_artifact(config, host) for host in hosts}
     planned_inventory_files = {"hosts.yml": _inventory(hosts, ansible_host_by_name, groups)}
 

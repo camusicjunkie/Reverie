@@ -10,11 +10,13 @@
 # named, in the same spirit as the "closed-list gaps" sweeps (#25, #27).
 #
 # `implemented: true` means the condition has real code raising it and a
-# fixture case exercising it today; the mechanical coverage check in
-# tests/conftest.py (assert_diagnostic / pytest_sessionfinish) only holds
-# implemented ids to the "every registry id needs a fixture" rule, so the
-# many conditions later tickets (#32-#38) will implement don't fail today's
-# build.
+# fixture case exercising it today. The mechanical coverage check in
+# tests/conftest.py (assert_diagnostic / pytest_sessionfinish) holds only
+# implemented ids to the "every registry id needs a fixture" rule, which is
+# what let tickets #30-#40 land a phase at a time. As of the closed-list gap
+# sweeps (#41-#44) every id here is implemented, so the distinction is now
+# dormant rather than load-bearing: a new id starts at `false` only for as
+# long as it takes the same commit to raise and fixture it.
 #
 # `fields` lists every key besides `id`/`phase` the diagnostic carries.
 # Prose docs are generated from this file: see scripts/generate_spec_docs.py
@@ -230,7 +232,7 @@
 - id: validate.secrets_pattern_matches_nothing
   phase: validate
   fields: [pattern]
-  implemented: false
+  implemented: true
 - id: validate.remove_matches_nothing
   phase: validate
   fields: []
@@ -250,7 +252,7 @@
 - id: validate.missing_tuple_key
   phase: validate
   fields: []
-  implemented: false
+  implemented: true
 - id: validate.secret_not_comparable
   phase: validate
   fields: [key_path]
@@ -258,7 +260,7 @@
 - id: validate.host_has_no_keys
   phase: validate
   fields: [host]
-  implemented: false
+  implemented: true
 - id: validate.duplicate_in_layer
   phase: validate
   fields: [file, line]
@@ -266,7 +268,7 @@
 - id: validate.duplicate_floor_key
   phase: validate
   fields: [file, line]
-  implemented: false
+  implemented: true
 
 # --- emit --------------------------------------------------------------
 
@@ -277,4 +279,4 @@
 - id: emit.host_set_mismatch
   phase: emit
   fields: []
-  implemented: false
+  implemented: true

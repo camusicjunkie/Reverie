@@ -213,7 +213,9 @@ def rsop_source(source_arg: str | None, host: str | None, output: str | None) ->
         host_collector.raise_if_any()
 
         loaded = load_phase.load_layers(enumerated.hosts, config.secret_backend)
-        validated = validate_phase.validate(loaded, config.merge_policies, config.secrets)
+        validated = validate_phase.validate(
+            loaded, config.merge_policies, config.secrets, config.defaults
+        )
 
         target = next(h for h in validated if h.name == host)
         document = {

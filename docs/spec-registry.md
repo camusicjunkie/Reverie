@@ -71,16 +71,16 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 
 | id | fields | implemented |
 | --- | --- | --- |
-| `validate.duplicate_floor_key` | file, line | no |
+| `validate.duplicate_floor_key` | file, line | yes |
 | `validate.duplicate_in_layer` | file, line | yes |
-| `validate.host_has_no_keys` | host | no |
-| `validate.missing_tuple_key` | -- | no |
+| `validate.host_has_no_keys` | host | yes |
+| `validate.missing_tuple_key` | -- | yes |
 | `validate.non_map_in_tuple_merge` | -- | yes |
 | `validate.pattern_matches_nothing` | pattern | yes |
 | `validate.remove_matches_nothing` | -- | yes |
 | `validate.secret_is_plaintext` | layer | yes |
 | `validate.secret_not_comparable` | key_path | yes |
-| `validate.secrets_pattern_matches_nothing` | pattern | no |
+| `validate.secrets_pattern_matches_nothing` | pattern | yes |
 | `validate.strategy_never_applies` | key_path | yes |
 
 ## resolve
@@ -92,7 +92,7 @@ _No error conditions._
 | id | fields | implemented |
 | --- | --- | --- |
 | `emit.foreign_file` | file | yes |
-| `emit.host_set_mismatch` | -- | no |
+| `emit.host_set_mismatch` | -- | yes |
 
 ## Warnings
 

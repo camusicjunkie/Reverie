@@ -82,11 +82,26 @@ def _check_removals(host: LoadedHost, collector: DiagnosticCollector, merge_poli
                 seen_list_elements[path] = prior + [e for e in value if not isinstance(e, Remove)]
 
 
-def _check_duplicates_in_layer(host: LoadedHost, collector: DiagnosticCollector, merge_policies: list[MergePolicy]) -> None:
+def _check_duplicates_in_layer(
+    host: LoadedHost,
+    collector: DiagnosticCollector,
+    merge_policies: list[MergePolicy],
+    defaults_address: str | None,
+) -> None:
     """A duplicate element within one layer's own list, under a strategy
-    that compares elements at all (`append` never does)."""
+    that compares elements at all (`append` never does).
+
+    The defaults floor reports under its own condition: it sits beneath the
+    chain rather than in it, so "the floor ships redundant data" is a
+    separately addressable finding from the same fault in a chain layer.
+    """
 
     for layer, layer_data in host.layers:
+        condition = (
+            "validate.duplicate_floor_key"
+            if defaults_address is not None and layer.address == defaults_address
+            else "validate.duplicate_in_layer"
+        )
         for path, value in _walk(layer_data):
             if not isinstance(value, list):
                 continue
@@ -96,7 +111,7 @@ def _check_duplicates_in_layer(host: LoadedHost, collector: DiagnosticCollector,
             elements = [e for e in value if not isinstance(e, Remove)]
             for i, a in enumerate(elements):
                 if any(list_merge.elements_equal(a, b, policy.strategy, policy.tuple_keys) for b in elements[i + 1 :]):
-                    collector.add("validate.duplicate_in_layer", file=str(layer.path), line=None)
+                    collector.add(condition, file=str(layer.path), line=None)
                     break  # one report per key path is enough; keep scanning the layer's other paths
 
 
@@ -117,6 +132,23 @@ def _check_secrets(host: LoadedHost, collector: DiagnosticCollector, secrets: li
                 continue
             if not isinstance(value, (Vault, Secret)) and any(keypath.matches(pattern, path) for pattern in secrets):
                 collector.add("validate.secret_is_plaintext", layer=str(layer.path))
+
+
+def _tuple_keys_missing(layer_lists: list[list], tuple_keys: tuple[str, ...] | None) -> bool:
+    """Whether any map element across `layer_lists` lacks a declared tuple key.
+
+    Element identity under a tuple strategy *is* the declared keys, so an
+    element missing one can never match anything -- it silently accumulates
+    instead of merging, which is the opposite of what declaring the policy
+    asked for.
+    """
+
+    for layer_list in layer_lists:
+        for element in layer_list:
+            target = element.value if isinstance(element, Remove) else element
+            if isinstance(target, dict) and not all(key in target for key in tuple_keys or ()):
+                return True
+    return False
 
 
 def _decisions_for_host(host: LoadedHost, merge_policies: list[MergePolicy]) -> list[merge_plan.BindingDecision]:
@@ -143,13 +175,18 @@ def _decisions_for_host(host: LoadedHost, merge_policies: list[MergePolicy]) -> 
     return decisions
 
 
-def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], secrets: list[str] | None = None) -> list[LoadedHost]:
+def validate(
+    loaded_hosts: list[LoadedHost],
+    merge_policies: list[MergePolicy],
+    secrets: list[str] | None = None,
+    defaults_address: str | None = None,
+) -> list[LoadedHost]:
     collector = DiagnosticCollector(PHASE)
     secrets = secrets or []
 
     for host in loaded_hosts:
         _check_removals(host, collector, merge_policies)
-        _check_duplicates_in_layer(host, collector, merge_policies)
+        _check_duplicates_in_layer(host, collector, merge_policies, defaults_address)
         _check_secrets(host, collector, secrets)
 
     values_by_path: dict[str, list[object]] = {}
@@ -181,12 +218,25 @@ def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], 
     plain_list_wins: set[str] = set()
     list_of_maps_wins: set[str] = set()
     non_map_tuple_patterns: set[str] = set()
+    incomplete_tuple_patterns: set[str] = set()
 
     for host in loaded_hosts:
-        for decision in _decisions_for_host(host, merge_policies):
+        decisions = _decisions_for_host(host, merge_policies)
+
+        # A host whose every top-level key resolved away (or that never had
+        # one) emits an artifact with an empty `reverie:` -- inert, and
+        # almost always a mis-declared chain rather than an intent.
+        top_level = [d for d in decisions if "/" not in d.key_path]
+        if all(d.shape == merge_plan.ABSENT for d in top_level):
+            collector.add("validate.host_has_no_keys", host=host.name)
+
+        for decision in decisions:
             policy = decision.policy
             if policy is None or not decision.applied:
                 continue
+            if policy.strategy in list_merge.TUPLE_STRATEGIES and decision.shape == merge_plan.LIST_OF_MAPS:
+                if _tuple_keys_missing(decision.effective, policy.tuple_keys):
+                    incomplete_tuple_patterns.add(policy.pattern)
             if policy.strategy in _MAP_STRATEGIES:
                 map_shaped_wins.add(policy.pattern)
             elif policy.strategy in list_merge.PLAIN_LIST_STRATEGIES:
@@ -201,8 +251,15 @@ def validate(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy], 
     for _pattern in non_map_tuple_patterns:
         collector.add("validate.non_map_in_tuple_merge")
 
+    for _pattern in incomplete_tuple_patterns:
+        collector.add("validate.missing_tuple_key")
+
     for pattern in vault_comparison_patterns:
         collector.add("validate.secret_not_comparable", key_path=pattern)
+
+    for pattern in secrets:
+        if not any(keypath.matches(pattern, path) for path in values_by_path):
+            collector.add("validate.secrets_pattern_matches_nothing", pattern=pattern)
 
     for policy in merge_policies:
         if policy.pattern not in matched_patterns:

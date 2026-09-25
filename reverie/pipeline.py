@@ -37,7 +37,9 @@ def compile_source(source_arg: str | None, output: str | None = None) -> Compile
         config = configure_phase.configure(source_arg)
         enumerated = enumerate_phase.enumerate_hosts(config)
         loaded = load_phase.load_layers(enumerated.hosts, config.secret_backend)
-        validated = validate_phase.validate(loaded, config.merge_policies, config.secrets)
+        validated = validate_phase.validate(
+            loaded, config.merge_policies, config.secrets, config.defaults
+        )
         resolved = resolve_phase.resolve(validated, config.merge_policies)
         emit_phase.emit(config, resolved, enumerated.hosts, enumerated.groups)
     except PhaseFailed as exc:
