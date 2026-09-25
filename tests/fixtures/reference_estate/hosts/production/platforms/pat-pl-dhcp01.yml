@@ -1,0 +1,7 @@
+env: production
+team: platforms
+site: patch
+role: dhcp
+baseline: server
+addr: 10.20.0.12
+description: "{{ reverie.role }} in {{ reverie.env }}"

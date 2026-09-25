@@ -1,0 +1,7 @@
+env: staging
+team: data
+site: patch
+role: database
+baseline: server
+addr: 10.30.0.21
+description: "{{ reverie.role }} in {{ reverie.env }}"

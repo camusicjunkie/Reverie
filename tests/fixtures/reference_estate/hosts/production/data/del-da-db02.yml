@@ -1,0 +1,7 @@
+env: production
+team: data
+site: deldin
+role: database
+baseline: server
+addr: 10.20.1.22
+description: "{{ reverie.role }} in {{ reverie.env }}"

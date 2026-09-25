@@ -1,0 +1,3 @@
+windows_features: [DHCP]
+computer_settings:
+  dhcp_authorized: true

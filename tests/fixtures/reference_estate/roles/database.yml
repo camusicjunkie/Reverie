@@ -1,0 +1,17 @@
+# NET-Framework-45-Core is already on the floor -- `unique` keeps one copy,
+# so a role restating its own prerequisite is harmless.
+windows_features: [NET-Framework-45-Core, NET-WCF-TCP-PortSharing45]
+admin_users: [svc_dba]
+local_groups:
+  groups:
+    - name: Administrators
+      members: [SG-DBA-Admins]
+files_and_folders:
+  items:
+    - path: 'C:\Data'
+      type: directory
+    # Same path the floor declares -- `unique_tuple` matches on `path` and
+    # keeps this, the more specific element, whole.
+    - path: 'C:\Estate'
+      type: directory
+      acl: dba

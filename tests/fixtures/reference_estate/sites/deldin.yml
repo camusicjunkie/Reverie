@@ -1,0 +1,5 @@
+# The floor's estate-wide syslog target is unreachable from this site --
+# removed here rather than overridden, so no target is emitted at all.
+syslog_target: !remove
+computer_settings:
+  time_zone: GMT Standard Time

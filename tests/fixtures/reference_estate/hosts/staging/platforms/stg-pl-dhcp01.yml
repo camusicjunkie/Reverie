@@ -1,0 +1,8 @@
+env: staging
+team: platforms
+site: patch
+role: dhcp
+tier: edge
+baseline: server
+addr: 10.30.0.12
+description: "{{ reverie.role }} in {{ reverie.env }}"

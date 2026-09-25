@@ -1,0 +1,5 @@
+tagging:
+  tier: core
+admin_users: [svc_oncall]
+computer_settings:
+  monitoring_agent: full

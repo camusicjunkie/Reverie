@@ -1,0 +1,11 @@
+windows_features: [FS-DFS-Namespace, FS-Resource-Manager]
+local_groups:
+  groups:
+    - name: Administrators
+      members: [SG-FileServer-Admins]
+    - name: Backup Operators
+      members: [SG-Backup-Operators]
+files_and_folders:
+  items:
+    - path: 'C:\Shares'
+      type: directory

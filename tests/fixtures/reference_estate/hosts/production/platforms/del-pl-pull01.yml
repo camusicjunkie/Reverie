@@ -1,0 +1,8 @@
+env: production
+team: platforms
+site: deldin
+role: pullserver
+tier: core
+baseline: server
+addr: 10.20.1.13
+description: "{{ reverie.role }} in {{ reverie.env }}"

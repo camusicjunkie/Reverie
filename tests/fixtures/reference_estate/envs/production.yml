@@ -1,0 +1,7 @@
+monitoring: prometheus
+computer_settings:
+  patch_window: sunday-0200
+files_and_folders:
+  items:
+    - path: 'C:\Estate\production'
+      type: directory

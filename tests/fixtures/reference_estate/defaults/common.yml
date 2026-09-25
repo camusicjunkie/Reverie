@@ -1,0 +1,20 @@
+domain_fqdn: reverie.test
+domain_admin_password: !vault ADMIN_CIPHERTEXT
+domain_join_password: !secret estate/domain-join#password
+syslog_target: logs.reverie.test
+tagging:
+  policy_version: '1.0'
+  owner: estate
+computer_settings:
+  time_zone: UTC
+  audit: true
+windows_features: [NET-Framework-45-Core]
+admin_users: [svc_baseline]
+local_groups:
+  groups:
+    - name: Administrators
+      members: [SG-Estate-Admins]
+files_and_folders:
+  items:
+    - path: 'C:\Estate'
+      type: directory

@@ -1,0 +1,3 @@
+syslog_target: logs.patch.reverie.test
+computer_settings:
+  time_zone: W. Europe Standard Time

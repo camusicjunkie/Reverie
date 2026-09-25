@@ -1,0 +1,7 @@
+tagging:
+  tier: edge
+# Edge images ship without the framework the floor installs estate-wide --
+# removed here, not merely overridden, so it leaves the list entirely.
+windows_features: [!remove NET-Framework-45-Core]
+computer_settings:
+  monitoring_agent: light

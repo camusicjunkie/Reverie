@@ -1,0 +1,39 @@
+layout: "{{ host.env }}/{{ host.team }}"
+chain:
+  - "teams/{{ host.team }}.yml"
+  - "envs/{{ host.env }}.yml"
+  - "sites/{{ host.site }}.yml"
+  - "roles/{{ host.role }}.yml"
+  - address: "tiers/{{ host.tier }}.yml"
+    optional: true
+  - "baselines/{{ host.baseline }}.yml"
+defaults: defaults/common.yml
+merge:
+  tagging: shallow
+  computer_settings: deep
+  windows_features: unique
+  admin_users: append
+  local_groups: deep
+  local_groups/groups:
+    strategy: deep_tuple
+    tuple_keys: [name]
+  files_and_folders: deep
+  files_and_folders/items:
+    strategy: unique_tuple
+    tuple_keys: [path]
+secrets:
+  - domain_admin_password
+  - domain_join_password
+secret_backend:
+  lookup: community.hashi_vault.vault_kv2_get
+  options: {mount_point: secret}
+inventory:
+  ansible_host: addr
+  groups:
+    - env
+    - team
+    - site
+    - fact: role
+      prefix: svc_
+    - tier
+    - baseline

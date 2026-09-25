@@ -1,0 +1,5 @@
+windows_features: [Web-Server, Web-Mgmt-Console]
+files_and_folders:
+  items:
+    - path: 'C:\inetpub\wwwroot'
+      type: directory

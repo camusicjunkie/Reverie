@@ -1,0 +1,7 @@
+monitoring: none
+computer_settings:
+  patch_window: daily-0100
+files_and_folders:
+  items:
+    - path: 'C:\Estate\staging'
+      type: directory

@@ -1,0 +1,7 @@
+tagging:
+  owner: data
+admin_users: [svc_data]
+local_groups:
+  groups:
+    - name: Administrators
+      members: [SG-Data-Admins]

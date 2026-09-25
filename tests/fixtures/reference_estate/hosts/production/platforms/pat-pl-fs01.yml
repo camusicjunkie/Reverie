@@ -1,0 +1,8 @@
+env: production
+team: platforms
+site: patch
+role: fileserver
+tier: core
+baseline: server
+addr: 10.20.0.11
+description: "{{ reverie.role }} in {{ reverie.env }}"
