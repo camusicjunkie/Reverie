@@ -83,6 +83,53 @@ def merges_elements_as_maps(strategy: str) -> bool:
     return strategy == "deep_tuple"
 
 
+def element_groups_by_layer(
+    layer_lists: list[list[object]],
+    strategy: str,
+    tuple_keys: tuple[str, ...] | None,
+) -> list[list[tuple[int, object]]]:
+    """`element_groups`, with each element paired to the index of the layer
+    list it came from.
+
+    Only `reverie.rsop` needs the pairing -- a record inside a folded
+    element attributes its contributors, so it has to know which layer
+    contributed each one, where `resolve` and `validate` care only about
+    the values. The grouping itself is one algorithm either way, so it
+    lives here once and `element_groups` drops the indices.
+    """
+
+    removal_targets: list[object] = []
+    groups: list[list[tuple[int, object]]] = []
+
+    for index in reversed(range(len(layer_lists))):  # most-specific-first
+        layer_list = layer_lists[index]
+        layer_removals = [element.value for element in layer_list if isinstance(element, Remove)]
+
+        for element in layer_list:
+            if isinstance(element, Remove):
+                continue  # contributes a match, not an element -- holds no position
+            if any(elements_equal(element, target, strategy, tuple_keys) for target in removal_targets):
+                continue
+            # A group's representative is its most specific element, the
+            # one a comparing strategy keeps.
+            group = next(
+                (
+                    existing
+                    for existing in groups
+                    if elements_equal(element, existing[-1][1], strategy, tuple_keys)
+                ),
+                None,
+            )
+            if group is not None:
+                group.insert(0, (index, element))  # more general than everything already in it
+            else:
+                groups.append([(index, element)])
+
+        removal_targets.extend(layer_removals)
+
+    return groups
+
+
 def element_groups(
     layer_lists: list[list[object]],
     strategy: str,
@@ -105,31 +152,10 @@ def element_groups(
     the answer, so nothing beneath it is ever visited.
     """
 
-    removal_targets: list[object] = []
-    groups: list[list[object]] = []
-
-    for layer_list in reversed(layer_lists):  # most-specific-first
-        layer_removals = [element.value for element in layer_list if isinstance(element, Remove)]
-
-        for element in layer_list:
-            if isinstance(element, Remove):
-                continue  # contributes a match, not an element -- holds no position
-            if any(elements_equal(element, target, strategy, tuple_keys) for target in removal_targets):
-                continue
-            # A group's representative is its most specific element, the
-            # one a comparing strategy keeps.
-            group = next(
-                (existing for existing in groups if elements_equal(element, existing[-1], strategy, tuple_keys)),
-                None,
-            )
-            if group is not None:
-                group.insert(0, element)  # more general than everything already in it
-            else:
-                groups.append([element])
-
-        removal_targets.extend(layer_removals)
-
-    return groups
+    return [
+        [element for _index, element in group]
+        for group in element_groups_by_layer(layer_lists, strategy, tuple_keys)
+    ]
 
 
 def has_map_element(layer_lists: list[list[object]]) -> bool:

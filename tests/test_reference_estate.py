@@ -565,6 +565,35 @@ def test_rsop_attributes_every_contributor_to_a_multi_layer_merge(fixture_dir):
     assert {c["outcome"] for c in groups["contributors"]} == {"merged"}
     assert groups["value"] == EXPECTED["pat-pl-fs01"]["local_groups"]["groups"]
 
+    # And the merges the `deep_tuple` fold performs *inside* that list get
+    # their own records, addressed by the element they happened in rather
+    # than pooled onto the list's own path (issue #48). This is the record
+    # that explains why the Administrators group's membership accumulated.
+    administrators = EXPECTED["pat-pl-fs01"]["local_groups"]["groups"][0]
+    members = rsop["local_groups/groups[name=Administrators]/members"]
+    assert members["policy"] == {"strategy": "append", "pattern": "local_groups/groups/members"}
+    assert members["value"] == administrators["members"]
+    assert members["contributors"] == [
+        {"layer": "roles/fileserver.yml", "value": ["SG-FileServer-Admins"], "outcome": "merged"},
+        {"layer": "defaults/common.yml", "value": ["SG-Estate-Admins"], "outcome": "merged"},
+    ]
+
+    # `credential`, undeclared, is a plain contest inside the same element --
+    # and the baseline is its only contributor.
+    credential = rsop["local_groups/groups[name=Administrators]/credential"]
+    assert credential["value"] == administrators["credential"]
+    assert credential["contributors"] == [
+        {"layer": "baselines/server.yml", "value": CREDENTIAL, "outcome": "won"},
+    ]
+
+    # "Backup Operators" is the role's alone: a group of one is never
+    # folded, so nothing inside it is merged and nothing is attributed.
+    assert not [address for address in rsop if address.startswith("local_groups/groups[name=Backup")]
+
+    # `files_and_folders/items` is `unique_tuple` -- the kept element
+    # survives whole, so its interior is never a merge either.
+    assert not [address for address in rsop if address.startswith("files_and_folders/items[")]
+
 
 def test_rsop_reports_both_flavours_of_removal(fixture_dir):
     source = _compiled(fixture_dir)

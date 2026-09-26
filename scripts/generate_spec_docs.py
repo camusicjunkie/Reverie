@@ -105,6 +105,22 @@ def render() -> str:
         lines.append(f"- `{reason}`")
     lines.append("")
 
+    selector = rsop_vocab["element_selector"]
+    lines.append("## RSOP address element selector")
+    lines.append("")
+    lines.append(
+        f"Appended to a list's segment as `{selector['open']}<key>{selector['assign']}<value>"
+        f"{selector['between_keys']}...{selector['close']}`, keyed by `{selector['keys']}` in "
+        "declaration order."
+    )
+    lines.append("")
+    lines.append(
+        f"Each value is rendered `{selector['scalar_rendering']}` -- as YAML writes a scalar inside "
+        f"a flow collection -- and additionally quoted when it contains "
+        f"`{selector['also_quoted_when_containing']}`."
+    )
+    lines.append("")
+
     return "\n".join(lines)
 
 

@@ -1,17 +1,20 @@
 """The `reverie rsop` verb -- a per-host provenance document (issue #38).
 
-Distinct from the artifact (CONTEXT.md "RSOP"): a flat map of key path to
-record, showing every contributor and the losers, not just the winner.
+Distinct from the artifact (CONTEXT.md "RSOP"): a flat map of RSOP address
+to record, showing every contributor and the losers, not just the winner.
 Generated on demand, never committed, and a pure function of
 `(source tree, host)` -- it never reads the artifact and works correctly
 even in a checkout where `compile` has never been run.
 
-Coverage is every key path any walked layer touches through its maps,
-intermediate maps included -- but not, yet, the paths a `deep_tuple` fold
-merges *inside* a list's elements: a record is keyed by key path, and a
-list's elements all share one, so attributing them needs an addressing
-notion this document doesn't have (issue #47 resolution). Each record
-carries exactly one of `value:`,
+Coverage is every merge this host performs: every key path any walked layer
+touches through its maps, intermediate maps included, plus the key paths a
+`deep_tuple` fold merges *inside* a list's elements. One key path is merged
+once per element group there, so those records are filed under an RSOP
+address -- the key path with an element selector, `groups[name=admins]`,
+naming the element by its declared `tuple_keys` (CONTEXT.md "RSOP address",
+issue #48). Nothing is merged inside an element under any other list
+strategy, nor inside a group of one, so neither has anything to attribute.
+Each record carries exactly one of `value:`,
 `redacted:`, `removed: true`, plus the `policy` that governed it (the
 declared strategy/pattern, or the ambient one it inherited) and its
 `contributors`, most-specific-first.
@@ -53,7 +56,7 @@ from reverie.phases.enumerate import LayerRef
 from reverie.phases.load import LoadedHost
 from reverie.phases.resolve import merge_lists
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
-from reverie.yaml_io import Remove, Vault, dump_pinned
+from reverie.yaml_io import Remove, Vault, dump_flow_scalar, dump_pinned
 
 _ABSENT = object()
 
@@ -98,16 +101,95 @@ def _check_output_path(output: str | None, root: Path, collector: DiagnosticColl
         collector.add("configure.rsop_output_parent_missing", path=str(path))
 
 
+def _element_selector(element: dict, tuple_keys: tuple[str, ...] | None) -> str:
+    """The `[name=Administrators]` part of an RSOP address (CONTEXT.md
+    "RSOP address"), naming one folded element by the identity the merge
+    itself used: its declared `tuple_keys`, in declaration order.
+
+    Every element of a fold carries every declared tuple key -- that's what
+    made them match, and `validate.missing_tuple_key` rejects an estate
+    where one doesn't -- so this never has to describe a partial identity.
+
+    Each value is written as YAML writes a scalar inside a flow collection
+    (`yaml_io.dump_flow_scalar`), which is what a selector is: so the
+    delimiters are unambiguous without an escape scheme of Reverie's own,
+    and two distinct elements can never render to one address.
+    """
+
+    pairs = ",".join(f"{key}={dump_flow_scalar(element[key])}" for key in tuple_keys or ())
+    return f"[{pairs}]"
+
+
+def _records_inside_fold(
+    records: dict[str, dict],
+    address: str,
+    key_path: str,
+    effective: list[tuple[LayerRef, object]],
+    decision: merge_plan.BindingDecision,
+    merge_policies: list[MergePolicy],
+) -> None:
+    """Records for the key paths a `deep_tuple` fold merges inside this
+    list's elements (issue #48).
+
+    One address per element group, so two groups contributing the same key
+    attribute separately instead of colliding on the list's own path. The
+    grouping and the skip of a group of one come from the same
+    `list_merge.element_groups_by_layer` that `resolve.merge_lists` folds
+    by, so these records describe the merges that really happened and no
+    others.
+
+    The fold's *interior* is then walked here rather than by `resolve`,
+    because only this module tracks which layer contributed each element.
+    So this mirrors `resolve._merge_maps` -- ambient `first`, the group
+    most-general-first, keys in first-contribution order -- exactly as
+    `_record_for_path` already mirrors it for a map's children. The
+    emitted list value still comes from `merge_lists` itself, so the
+    document's *values* remain byte-identical to `compile`'s either way.
+    """
+
+    tuple_keys = decision.policy.tuple_keys if decision.policy else None
+    groups = list_merge.element_groups_by_layer(
+        [value for _layer, value in effective], decision.strategy, tuple_keys
+    )
+
+    for group in groups:
+        if len(group) < 2:
+            continue  # a lone element survives whole -- nothing is merged inside it
+        # A group of two or more matched under a tuple strategy, so every
+        # member of it is map-shaped -- that is what `elements_equal` had
+        # to establish to group them at all.
+        elements: list[tuple[LayerRef, dict]] = [(effective[index][0], element) for index, element in group]
+        element_address = f"{address}{_element_selector(group[-1][1], tuple_keys)}"
+        keys = dict.fromkeys(key for _layer, element in elements for key in element)
+        for key in keys:
+            _record_for_path(
+                records,
+                f"{element_address}/{key}",
+                f"{key_path}/{key}",
+                [(layer, element[key]) for layer, element in elements if key in element],
+                merge_policies,
+                ambient_strategy="first",
+            )
+
+
 def _record_for_path(
     records: dict[str, dict],
+    address: str,
     key_path: str,
     contributions: list[tuple[LayerRef, object]],
     merge_policies: list[MergePolicy],
     ambient_strategy: str,
 ) -> object:
-    """Compute the record for one key path, store it in `records`, and
-    return its resolved value (or `_ABSENT` if removed) for the parent
-    map merge to fold in -- the same shape `resolve._merge_key` returns."""
+    """Compute the record for one key path, store it in `records` under its
+    RSOP address, and return its resolved value (or `_ABSENT` if removed)
+    for the parent map merge to fold in -- the same shape
+    `resolve._merge_key` returns.
+
+    `key_path` is what binds the policy; `address` is only where the record
+    is filed. The two differ exactly below a `deep_tuple` fold, where one
+    key path is merged once per element group: a `merge:` pattern addresses
+    the path, a reader addresses the element.
+    """
 
     decision = merge_plan.bind(key_path, [value for _layer, value in contributions], merge_policies, ambient_strategy)
     policy = decision.policy
@@ -142,9 +224,15 @@ def _record_for_path(
         merged: dict = {}
         for key in keys:
             child_path = f"{key_path}/{key}" if key_path else key
+            child_address = f"{address}/{key}" if address else key
             child_contributions = [(layer, d[key]) for layer, d in effective if key in d]
             child_value = _record_for_path(
-                records, child_path, child_contributions, merge_policies, decision.children_ambient
+                records,
+                child_address,
+                child_path,
+                child_contributions,
+                merge_policies,
+                decision.children_ambient,
             )
             if child_value is not _ABSENT:
                 merged[key] = child_value
@@ -154,6 +242,8 @@ def _record_for_path(
             outcome_by_address[layer.address] = "merged"
         tuple_keys = policy.tuple_keys if policy else None
         result = merge_lists(key_path, [v for _, v in effective], strategy, tuple_keys, merge_policies)
+        if list_merge.merges_elements_as_maps(strategy):
+            _records_inside_fold(records, address, key_path, effective, decision, merge_policies)
     else:
         winner_layer, winner_value = effective[-1]
         outcome_by_address[winner_layer.address] = "won"
@@ -181,7 +271,7 @@ def _record_for_path(
     else:
         record["value"] = result
 
-    records[key_path] = record
+    records[address] = record
     return result
 
 
@@ -192,7 +282,7 @@ def compute_rsop(host: LoadedHost, merge_policies: list[MergePolicy]) -> dict[st
     keys = dict.fromkeys(key for _layer, data in host.layers for key in data)
     for key in keys:
         contributions = [(layer, data[key]) for layer, data in host.layers if key in data]
-        _record_for_path(records, key, contributions, merge_policies, ambient_strategy="first")
+        _record_for_path(records, key, key, contributions, merge_policies, ambient_strategy="first")
     return records
 
 

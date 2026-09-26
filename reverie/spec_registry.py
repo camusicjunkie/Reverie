@@ -67,7 +67,7 @@ def contributor_outcomes() -> list[str]:
 
 
 @functools.lru_cache
-def rsop_vocabulary() -> dict[str, list[str]]:
+def rsop_vocabulary() -> dict[str, object]:
     return dict(_load_yaml("rsop-vocabulary.yml"))
 
 

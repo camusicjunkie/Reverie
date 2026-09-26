@@ -5,3 +5,30 @@ annotations:
   - rsop.type_disagreement
 redaction_reasons:
   - vault
+
+# An RSOP record is keyed by an RSOP address (CONTEXT.md "RSOP address"):
+# a key path, with an element selector appended to any segment naming a
+# list whose elements a `deep_tuple` fold merged (issue #48). A merge
+# policy and a declared secret key are plain key paths and never carry a
+# selector -- this syntax is RSOP's alone.
+element_selector:
+  open: '['
+  close: ']'
+  assign: '='
+  between_keys: ','
+  # The strategy's declared `tuple_keys`, in declaration order -- element
+  # identity as the merge itself computed it, so an address is stable
+  # across layer order and across a layer being added. Never a positional
+  # index, which would move whenever the merge order did.
+  keys: tuple_keys
+  # Each value is written as YAML writes a scalar inside a flow
+  # collection -- which is what a selector is. YAML's own flow rules
+  # already quote everything that would otherwise be ambiguous between
+  # the delimiters above, so the selector needs no escape scheme of
+  # Reverie's own, and two distinct elements can never render to one
+  # address. A `!vault` never appears: comparing ciphertext is rejected
+  # in validate, so no `!vault` is ever a tuple key.
+  scalar_rendering: yaml-flow
+  # The one rule YAML has no reason to apply: `/` separates key-path
+  # segments, so a value containing one is quoted too.
+  also_quoted_when_containing: /

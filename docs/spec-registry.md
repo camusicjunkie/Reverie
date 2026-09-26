@@ -141,3 +141,9 @@ _No error conditions._
 ## RSOP redaction reasons
 
 - `vault`
+
+## RSOP address element selector
+
+Appended to a list's segment as `[<key>=<value>,...]`, keyed by `tuple_keys` in declaration order.
+
+Each value is rendered `yaml-flow` -- as YAML writes a scalar inside a flow collection -- and additionally quoted when it contains `/`.

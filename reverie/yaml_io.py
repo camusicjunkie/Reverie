@@ -501,6 +501,43 @@ def dump_pinned(data: dict) -> str:
     )
 
 
+def dump_flow_scalar(value: object) -> str:
+    """One scalar as YAML writes it *inside a flow collection*.
+
+    The rendering an RSOP address's element selector uses (CONTEXT.md
+    "RSOP address"). A selector is visually a flow collection --
+    `[name=admins,ttl=30]` -- and YAML's own flow rules already quote
+    exactly what would otherwise be ambiguous there: a value containing
+    `,`, `[` or `]`, the empty string, and anything that would read back
+    as another type (`true`, `7`). So the selector needs no escape scheme
+    of its own, and `!vault`/`!secret` keep their tags.
+
+    One addition YAML has no reason to make: `/` separates key-path
+    segments, so a value containing one is quoted too. Otherwise a
+    `C:\\Shares` tuple key would put a spurious segment boundary inside
+    an address. A tag is not part of the scalar it marks, so the quoting
+    goes around the content and leaves the tag outside it.
+    """
+
+    rendered = yaml.dump(
+        [value],
+        Dumper=_PinnedDumper,
+        default_flow_style=True,
+        allow_unicode=True,
+        width=1_000_000,
+    ).strip()
+    rendered = rendered.removeprefix("[").removesuffix("]")
+
+    tag = ""
+    if rendered.startswith("!"):
+        tag, _, rendered = rendered.partition(" ")
+        tag += " "
+
+    if "/" in rendered and not rendered.startswith("'"):
+        rendered = "'" + rendered.replace("'", "''") + "'"
+    return tag + rendered
+
+
 def write_generated_file(data: dict) -> bytes:
     """Render `data` with the generated header, returning the exact bytes to write."""
 

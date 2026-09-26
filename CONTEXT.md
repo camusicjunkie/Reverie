@@ -35,10 +35,14 @@ _Avoid_: lookup_options (Hiera's name by way of Datum, for an operation Reverie 
 The operation a merge policy performs on the shape it binds to. The closed set is seven: `first`, `shallow`, `deep`, `append`, `unique`, `unique_tuple`, `deep_tuple`. A strategy is total on its own shape and most-specific-wins on every other.
 
 **Element group**:
-The elements of a merged list that a strategy counts as the same element, gathered across every contributing layer — the unit a list merge emits one element for. A group of one is never merged: its lone element is already the answer. Under `deep_tuple` a group of two or more is *folded*: merged as a map at the list's own key path, so a policy addressed there governs it. The fold is one merge over the whole group, never a chain of pairwise ones, so a `!remove` inside a folded element reaches every more general contributor to it, exactly as it would anywhere else.
+The elements of a merged list that a strategy counts as the same element, gathered across every contributing layer — the unit a list merge emits one element for. A group of one is never merged: its lone element is already the answer. Under `deep_tuple` a group of two or more is *folded*: merged as a map at the list's own key path, so a policy addressed there governs it. The fold is one merge over the whole group, never a chain of pairwise ones, so a `!remove` inside a folded element reaches every more general contributor to it, exactly as it would anywhere else. Also the unit RSOP attributes a fold's interior merges to — one element selector per group.
 
 **Key path**:
-A single `/`-separated glob (`*` one segment, `**` zero or more, no regex, no list indices) addressing into resolved data. Shared syntax for merge policies and declared secret keys. Having no list indices, a list's own path is also the path its elements' keys hang from — real only under `deep_tuple`, the one strategy that merges its elements as maps. Beneath any other list strategy nothing is merged there, so a policy addressed inside one binds to nothing and is reported.
+A single `/`-separated glob (`*` one segment, `**` zero or more, no regex, no list indices) addressing into resolved data. Shared syntax for merge policies and declared secret keys. Having no list indices, a list's own path is also the path its elements' keys hang from — real only under `deep_tuple`, the one strategy that merges its elements as maps. Beneath any other list strategy nothing is merged there, so a policy addressed inside one binds to nothing and is reported. One key path there stands for one merge per element group, which only RSOP needs to tell apart — see **RSOP address**.
+
+**RSOP address**:
+The key one RSOP record sits under: a key path, with an *element selector* — `[name=Administrators]`, the fold's declared `tuple_keys` in declaration order — appended to any segment naming a list whose elements a `deep_tuple` fold merged. Element identity as the merge itself computed it, so an address is stable across layer order and across a layer being added, and two element groups contributing the same key address distinctly instead of colliding. Each value inside a selector is written as YAML writes a scalar in a flow collection — which is what a selector is — so YAML's own quoting settles every ambiguity against the delimiters without an escape scheme of Reverie's own; a `/` is quoted too, being the segment separator YAML knows nothing about. A superset of key-path syntax and RSOP's alone: a merge policy or declared secret key is a plain key path and never carries a selector.
+_Avoid_: list index (an artifact of merge order, not an identity), and nesting a fold's records inside the list's own record (the map stays flat).
 
 **Deferred Jinja**:
 A `{{ … }}` template inside a data value, passed through as inert literal text for Ansible to evaluate at play time. Reverie never parses it, only balance-checks the braces.
@@ -54,11 +58,11 @@ The compiled `host_vars/<host>.yml`, one per host, all resolved data under a sin
 A directory the compiler generates wholesale and may delete files from; anything in it not carrying the compiler's generated header is an error, never a cleanup target.
 
 **RSOP** (Resolved Set of Policy):
-The structured, per-host provenance document — a flat map of key path to record, showing every contributor and the losers, not just the winner. Distinct from the artifact: generated on demand, never committed, and the only place per-key attribution lives.
+The structured, per-host provenance document — a flat map of **RSOP address** to record, showing every contributor and the losers, not just the winner. One record per merge the host performs, the interior of a `deep_tuple` fold included. Distinct from the artifact: generated on demand, never committed, and the only place per-key attribution lives.
 _Avoid_: using "artifact" for this — the artifact carries no attribution.
 
 **Contributor**:
-One entry in an RSOP record's contributor list: `{layer, value, outcome}`, ordered most-specific-first, where outcome is one of `won`, `overridden`, `merged`, `removed`.
+One entry in an RSOP record's contributor list: `{layer, value, outcome}`, ordered most-specific-first, where outcome is one of `won`, `overridden`, `merged`, `removed`. Inside a `deep_tuple` fold, contributors are those of one element group — the layers that contributed *that* element — never pooled across the list.
 
 **`!remove`**:
 The tag marking removal of a key, scalar list element, or tuple-matched list-of-maps element during merge. Never emitted in output.
