@@ -6,10 +6,10 @@ annotations:
 redaction_reasons:
   - vault
 
-# An RSOP record is keyed by an RSOP address (CONTEXT.md "RSOP address"):
-# a key path, with an element selector appended to any segment naming a
-# list whose elements a `deep_tuple` fold merged (issue #48). A merge
-# policy and a declared secret key are plain key paths and never carry a
+# An RSOP record is keyed by an RSOP address (CONTEXT.md "RSOP address",
+# ADR 0010): a key path, with an element selector appended to any segment
+# naming a list whose elements a `deep_tuple` fold merged. A merge policy
+# and a declared secret key are plain key paths and never carry a
 # selector -- this syntax is RSOP's alone.
 element_selector:
   open: '['

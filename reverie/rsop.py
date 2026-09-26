@@ -12,7 +12,7 @@ touches through its maps, intermediate maps included, plus the key paths a
 once per element group there, so those records are filed under an RSOP
 address -- the key path with an element selector, `groups[name=admins]`,
 naming the element by its declared `tuple_keys` (CONTEXT.md "RSOP address",
-issue #48). Nothing is merged inside an element under any other list
+ADR 0010). Nothing is merged inside an element under any other list
 strategy, nor inside a group of one, so neither has anything to attribute.
 Each record carries exactly one of `value:`,
 `redacted:`, `removed: true`, plus the `policy` that governed it (the
