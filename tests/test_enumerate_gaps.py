@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import yaml
+
 from tests.conftest import assert_diagnostic, run_reverie
 
 
@@ -89,3 +91,34 @@ def test_a_defaults_floor_alone_is_enough_to_walk(fixture_dir):
     result = run_reverie("compile", str(source))
 
     assert result.returncode == 0, result.stderr
+
+
+def test_a_layer_file_no_chain_ever_addresses_is_legitimate(fixture_dir):
+    """Issue #51, user story 32 -- the permissive half of the asymmetry.
+
+    An addressed-but-missing layer file is always an error; a layer file
+    nothing addresses is normal, because pre-provisioning a site ahead of
+    its first host is legitimate. The error half is covered above, and
+    `enumerate.orphan_layer_file` sits in the deleted-ids list -- but that
+    guards the *id*, not the behaviour, so the permissive half is stated
+    here directly.
+    """
+
+    source = fixture_dir("layered")
+    clean = run_reverie("compile", str(source))
+    assert clean.returncode == 0, clean.stderr
+
+    (source / "dcs" / "paris.yml").write_text("region: elsewhere\n", encoding="utf-8", newline="")
+    (source / "roles" / "database.yml").write_text("port: 5432\n", encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode == 0, result.stderr
+    # Byte-identical to the run without them, artifact and diagnostics
+    # both: the orphans provoke no error, no warning of their own, and
+    # contribute nothing to the host that walked past them. (This estate
+    # already warns about undeclared chain facts -- the point is that the
+    # orphans add nothing to what it already said.)
+    assert result.stderr == clean.stderr
+    artifact = yaml.safe_load((source / "host_vars" / "host1.yml").read_text(encoding="utf-8"))
+    assert artifact["reverie"] == {"dc": "dublin", "role": "web", "env": "prod", "region": "emea", "port": 80}

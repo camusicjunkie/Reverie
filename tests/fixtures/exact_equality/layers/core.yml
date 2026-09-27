@@ -1,0 +1,5 @@
+case_variants: [sg-admins, SG-Admins]
+type_variants: [1, true]
+tuple_variants:
+  - name: sg-admins
+    scope: layer

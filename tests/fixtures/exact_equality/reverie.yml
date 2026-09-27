@@ -1,0 +1,10 @@
+layout: ""
+chain:
+  - "layers/{{ host.tier }}.yml"
+defaults: defaults/common.yml
+merge:
+  case_variants: unique
+  type_variants: unique
+  tuple_variants:
+    strategy: unique_tuple
+    tuple_keys: [name]

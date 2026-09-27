@@ -138,3 +138,35 @@ def test_host_set_mismatch_between_resolve_and_emit_is_an_emit_error(tmp_path):
         raise AssertionError("emit did not fail on a mismatched host set")
 
     assert_diagnostic(diagnostics, "emit.host_set_mismatch")
+
+
+def test_two_distinct_conditions_in_one_phase_are_collected_together(fixture_dir):
+    """Issue #51, user story 19 -- collect every error within a phase.
+
+    `test_merge_lists` asserts that two instances of *one* condition are
+    both reported. This is the case the story is actually about: two
+    *different* conditions found in the same phase come back in one run,
+    so an author fixes both at once instead of one recompile at a time.
+    A premature `raise_if_any()` between checks would regress it.
+    """
+
+    source = fixture_dir("merge_lists")
+    # A dead policy (nothing at that key path) and a stale !remove (nothing
+    # more general to remove) -- different checks, same phase.
+    config = source / "reverie.yml"
+    config.write_text(
+        config.read_text(encoding="utf-8") + "  no_such_key: deep\n", encoding="utf-8", newline=""
+    )
+    (source / "roles" / "web.yml").write_text(
+        "never_defined_anywhere: !remove\n", encoding="utf-8", newline=""
+    )
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(diagnostics, "validate.pattern_matches_nothing", pattern="no_such_key")
+    assert_diagnostic(diagnostics, "validate.remove_matches_nothing")
+    # Every reported condition belongs to the phase that aborted: the run
+    # stops at the boundary, it does not continue into resolve or emit.
+    assert {d["phase"] for d in diagnostics} == {"validate"}

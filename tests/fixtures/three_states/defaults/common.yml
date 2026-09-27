@@ -1,0 +1,4 @@
+nulled: floor-value
+emptied: [floor, element]
+appended: [floor-element]
+untouched: floor-value

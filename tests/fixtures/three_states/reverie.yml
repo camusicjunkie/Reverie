@@ -1,0 +1,8 @@
+layout: ""
+chain:
+  - "layers/{{ host.tier }}.yml"
+defaults: defaults/common.yml
+merge:
+  # A list strategy, so "[] contributes no elements" is distinguishable
+  # from "[] wins outright" -- the two ways an empty list can behave.
+  appended: append

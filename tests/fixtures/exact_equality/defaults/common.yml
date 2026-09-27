@@ -1,0 +1,5 @@
+case_variants: [SG-Admins, SG-Estate]
+type_variants: ['1', 'true']
+tuple_variants:
+  - name: SG-Admins
+    scope: floor
