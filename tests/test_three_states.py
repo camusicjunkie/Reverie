@@ -12,6 +12,7 @@ them and every other test in this suite would still pass.
 
 from __future__ import annotations
 
+import pytest
 import yaml
 
 from tests.conftest import run_reverie
@@ -60,6 +61,7 @@ def test_an_empty_list_contributes_no_elements_under_a_list_strategy(fixture_dir
     assert resolved["appended"] == ["floor-element"]
 
 
+@pytest.mark.story(9)
 def test_the_three_states_are_pairwise_distinct_on_one_host(fixture_dir):
     resolved = _resolved(fixture_dir)
 

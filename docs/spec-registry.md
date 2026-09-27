@@ -142,6 +142,53 @@ _No error conditions._
 
 - `vault`
 
+## User story coverage
+
+39 of 40 stories are declared by a test (`@pytest.mark.story`), 1 untestable. Wording is authoritative in the implementation spec, not here; a marker records that a test *claims* a story, which is weaker than the error-condition check above.
+
+| Story | Summary | Covered |
+| --- | --- | --- |
+| 1 | One file under hosts/ picks up every layer its facts route it through. | yes |
+| 2 | A host's position is validated against the declared layout, never inferred. | yes |
+| 3 | A merge policy is declared once and applies to every host walking that layer. | yes |
+| 4 | One key-path glob syntax, shared by merge policies and declared secret keys. | yes |
+| 5 | The most specific declared policy wins outright, never blended with an ancestor's. | yes |
+| 6 | An unresolvable tie between equally specific policies is an error, not a silent pick. | yes |
+| 7 | !remove deletes an inherited key, scalar element, or tuple-matched map element. | yes |
+| 8 | A !remove that matches nothing in any walked layer is a validation error. | yes |
+| 9 | Absent, null, and [] are three distinct states; only absent continues the walk. | yes |
+| 10 | All four list strategies share one ordering rule. | yes |
+| 11 | Element equality is exact - same type, same value, no case folding or coercion. | yes |
+| 12 | A policy whose strategy never meets a shape it can bind to is a validation error. | yes |
+| 13 | A duplicate element within one layer under a comparing strategy is an error. | yes |
+| 14 | An unheadered file in an owned directory is an error, never a cleanup target. | yes |
+| 15 | The artifact namespaces all resolved data under reverie:, with reverie_meta: beside it. | yes |
+| 16 | The artifact carries no timestamp and is byte-for-byte reproducible. | yes |
+| 17 | A failed compile leaves the output directory exactly as it was (all-or-nothing). | yes |
+| 18 | Every error carries a phase.condition id, a phase, and file/line where one exists. | yes |
+| 19 | Every error within a phase is collected before the compile aborts at the boundary. | yes |
+| 20 | No flag anywhere downgrades an error to a warning. | n/a |
+| 21 | A !vault scalar is copied into the artifact untouched for Ansible to decrypt. | yes |
+| 22 | An unencrypted value at a declared secret key path is rejected. | yes |
+| 23 | A !secret address resolves to the backend's native call only at emit time. | yes |
+| 24 | A !secret address participates in unique and tuple matching, unlike !vault. | yes |
+| 25 | rsop reports every contributing layer and its outcome, not just the winner. | yes |
+| 26 | RSOP redacts a !vault value but keeps attribution; a !secret address shows in full. | yes |
+| 27 | rsop --output refuses a path inside the source tree or an owned directory. | yes |
+| 28 | rsop works correctly in a checkout where compile has never run. | yes |
+| 29 | A failed compile exits non-zero with a complete, machine-parseable diagnostic set. | yes |
+| 30 | Recompiling a checked-out tree and diffing the result is a drift-detection gate. | yes |
+| 31 | A required chain entry with no file on disk is an enumerate error naming its context. | yes |
+| 32 | An unaddressed layer file is normal; an addressed-but-missing one is always an error. | yes |
+| 33 | One inventory group per distinct value of each declared fact, with a prefix override. | yes |
+| 34 | Reverie never emits group_vars of its own. | yes |
+| 35 | An emitted group name colliding with a host name is a caught enumerate error. | yes |
+| 36 | Every error condition is a member of a closed, documented, fixture-backed list. | yes |
+| 37 | Prose documentation is generated from machine-readable closed lists, checked for staleness. | yes |
+| 38 | The conformance fixture set is real directories, runnable against any implementation. | yes |
+| 39 | A missing source or host argument is a named configure error, not a parser message. | yes |
+| 40 | A directory with no reverie.yml fails with a clear configure error, not a traceback. | yes |
+
 ## RSOP address element selector
 
 Appended to a list's segment as `[<key>=<value>,...]`, keyed by `tuple_keys` in declaration order.

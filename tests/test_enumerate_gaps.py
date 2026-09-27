@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
@@ -93,6 +94,7 @@ def test_a_defaults_floor_alone_is_enough_to_walk(fixture_dir):
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.story(32)
 def test_a_layer_file_no_chain_ever_addresses_is_legitimate(fixture_dir):
     """Issue #51, user story 32 -- the permissive half of the asymmetry.
 

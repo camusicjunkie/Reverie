@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
 
 
+@pytest.mark.story(33)
 def test_declared_group_facts_produce_one_group_per_distinct_value(fixture_dir):
     source = fixture_dir("inventory")
 
@@ -67,6 +69,7 @@ def test_fact_value_that_is_not_a_legal_group_name_is_rejected(fixture_dir):
     assert_diagnostic(diagnostics, "enumerate.illegal_group_name", host="host1", fact="env", value="prod-1")
 
 
+@pytest.mark.story(35)
 def test_emitted_group_name_colliding_with_a_host_name_is_an_enumerate_error(fixture_dir):
     source = fixture_dir("inventory")
     (source / "hosts" / "svc_web.yml").write_text("env: dev\nrole: web\nip: 10.0.0.3\n", encoding="utf-8", newline="")

@@ -15,6 +15,7 @@ nothing.
 
 from __future__ import annotations
 
+import pytest
 import yaml
 
 from tests.conftest import run_reverie
@@ -28,6 +29,7 @@ def _resolved(fixture_dir) -> dict:
     return artifact["reverie"]
 
 
+@pytest.mark.story(11)
 def test_unique_never_folds_case_so_a_typo_stays_visible(fixture_dir):
     resolved = _resolved(fixture_dir)
 

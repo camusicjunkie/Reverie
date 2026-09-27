@@ -17,6 +17,7 @@ fixture-coverage check is untouched.
 
 from __future__ import annotations
 
+import pytest
 import yaml
 
 from tests.conftest import run_reverie
@@ -458,6 +459,7 @@ def _compiled(fixture_dir):
     return source
 
 
+@pytest.mark.story(38)
 def test_estate_compiles_to_one_artifact_per_host_plus_an_inventory(fixture_dir):
     source = _compiled(fixture_dir)
 
@@ -465,6 +467,7 @@ def test_estate_compiles_to_one_artifact_per_host_plus_an_inventory(fixture_dir)
     assert sorted(p.name for p in (source / "inventory").iterdir()) == ["hosts.yml"]
 
 
+@pytest.mark.story(1, 3)
 def test_every_host_resolves_to_its_full_expected_data(fixture_dir):
     source = _compiled(fixture_dir)
 
@@ -499,6 +502,7 @@ def test_every_artifact_records_the_layers_its_host_walked(fixture_dir):
     ]
 
 
+@pytest.mark.story(34)
 def test_inventory_groups_membership_and_ansible_host(fixture_dir):
     source = _compiled(fixture_dir)
 
@@ -508,6 +512,7 @@ def test_inventory_groups_membership_and_ansible_host(fixture_dir):
     assert not (source / "group_vars").exists()
 
 
+@pytest.mark.story(30)
 def test_recompiling_the_same_estate_is_byte_identical(fixture_dir):
     source = _compiled(fixture_dir)
     generated = sorted((source / "host_vars").iterdir()) + sorted((source / "inventory").iterdir())

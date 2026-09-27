@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
@@ -19,6 +20,7 @@ def test_append_concatenates_most_specific_first_with_no_dedup(fixture_dir):
     assert artifact["reverie"]["members"] == ["delta", "gamma", "alpha", "beta"]
 
 
+@pytest.mark.story(10)
 def test_unique_keeps_first_occurrence_most_specific_first(fixture_dir):
     source = fixture_dir("merge_lists")
 
@@ -116,6 +118,7 @@ def test_remove_on_list_element_matching_nothing_below_is_a_validate_error(fixtu
     assert_diagnostic(diagnostics, "validate.remove_matches_nothing")
 
 
+@pytest.mark.story(13)
 def test_duplicate_element_within_one_layer_under_unique_is_a_validate_error(fixture_dir):
     source = fixture_dir("merge_lists")
     (source / "roles" / "web.yml").write_text(

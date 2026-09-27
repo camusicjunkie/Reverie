@@ -105,6 +105,25 @@ def render() -> str:
         lines.append(f"- `{reason}`")
     lines.append("")
 
+    stories = spec_registry.user_stories()
+    covered = spec_registry.covered_user_stories()
+    untestable = [entry for entry in stories.values() if entry.get("testable") is False]
+    lines.append("## User story coverage")
+    lines.append("")
+    lines.append(
+        f"{len(covered)} of {len(stories)} stories are declared by a test "
+        f"(`@pytest.mark.story`), {len(untestable)} untestable. Wording is authoritative in the "
+        "implementation spec, not here; a marker records that a test *claims* a story, which is "
+        "weaker than the error-condition check above."
+    )
+    lines.append("")
+    lines.append("| Story | Summary | Covered |")
+    lines.append("| --- | --- | --- |")
+    for number, entry in sorted(stories.items()):
+        state = "yes" if entry.get("covered") else ("n/a" if entry.get("testable") is False else "**no**")
+        lines.append(f"| {number} | {entry['summary']} | {state} |")
+    lines.append("")
+
     selector = rsop_vocab["element_selector"]
     lines.append("## RSOP address element selector")
     lines.append("")

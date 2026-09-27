@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
@@ -31,6 +32,7 @@ def test_multi_entry_chain_resolves_general_to_specific(fixture_dir):
     ]
 
 
+@pytest.mark.story(2)
 def test_host_filed_in_wrong_layout_position_is_an_enumerate_error(fixture_dir):
     source = fixture_dir("layered")
     wrong = source / "hosts" / "london"

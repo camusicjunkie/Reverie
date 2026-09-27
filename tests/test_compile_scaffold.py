@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
@@ -24,6 +25,7 @@ def test_minimal_compile_produces_artifact_and_inventory(fixture_dir):
     assert (source / "inventory" / "hosts.yml").is_file()
 
 
+@pytest.mark.story(15)
 def test_artifact_loads_to_expected_typed_values(fixture_dir):
     source = fixture_dir("minimal")
     run_reverie("compile", str(source))
@@ -43,6 +45,7 @@ def test_artifact_loads_to_expected_typed_values(fixture_dir):
     assert inventory == {"all": {"hosts": {"host1": None}}}
 
 
+@pytest.mark.story(16)
 def test_compile_is_byte_for_byte_reproducible(fixture_dir):
     source = fixture_dir("minimal")
 
@@ -82,6 +85,7 @@ def test_nan_value_is_a_load_error(fixture_dir):
     assert_diagnostic(diagnostics, "load.value_out_of_domain", kind="nan_or_infinity")
 
 
+@pytest.mark.story(14)
 def test_unmanaged_file_in_output_directory_is_error_not_deleted(fixture_dir):
     source = fixture_dir("minimal")
     host_vars_dir = source / "host_vars"
@@ -130,6 +134,7 @@ def test_missing_chain_fact_is_distinct_from_missing_layer_file(fixture_dir):
     assert not any(d["id"] == "enumerate.missing_layer_file" for d in diagnostics)
 
 
+@pytest.mark.story(31)
 def test_missing_layer_file_is_an_enumerate_error(fixture_dir):
     source = fixture_dir("minimal")
     (source / "reverie.yml").write_text(
@@ -151,6 +156,7 @@ def test_missing_layer_file_is_an_enumerate_error(fixture_dir):
     )
 
 
+@pytest.mark.story(29)
 def test_malformed_yaml_syntax_in_a_layer_is_a_load_error(fixture_dir):
     source = fixture_dir("minimal")
     (source / "defaults" / "common.yml").write_text("site: [\n", encoding="utf-8", newline="")
@@ -190,6 +196,7 @@ def test_recompile_after_fixing_failure_matches_fresh_compile(fixture_dir):
     assert (broken / "host_vars" / "host1.yml").read_bytes() == (clean / "host_vars" / "host1.yml").read_bytes()
 
 
+@pytest.mark.story(39)
 def test_missing_source_argument_is_a_configure_error(fixture_dir):
     result = run_reverie("compile")
 
@@ -198,6 +205,7 @@ def test_missing_source_argument_is_a_configure_error(fixture_dir):
     assert_diagnostic(diagnostics, "configure.missing_source_argument")
 
 
+@pytest.mark.story(40)
 def test_missing_reverie_yml_is_a_configure_error(tmp_path):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()

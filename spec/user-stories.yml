@@ -1,0 +1,153 @@
+# The closed list of user stories the implementation spec commits to.
+#
+# Source of truth for the WORDING is the implementation spec itself
+# (github.com/camusicjunkie/Reverie issue #29, "User Stories"). The
+# `summary` here is a label, not a substitute: enough to name a story in a
+# failing check, never enough to answer "what exactly did it ask for".
+# Reword a story there, not here; keep the summary honest if you do.
+#
+# `covered: true` means at least one test declares this story with the
+# `@pytest.mark.story(...)` marker. The mechanical check in
+# tests/conftest.py holds every covered story to that, so a story cannot
+# quietly lose its last test.
+#
+# WHAT THIS CHECK CANNOT DO, and must not be read as doing. The sibling
+# check over spec/error-conditions.yml is strong because the id it records
+# is the id the diagnostic really carried -- a test cannot claim coverage
+# it does not have. No story check reaches that bar, because a story is
+# prose and no assertion can be compared against it. This file verifies
+# only that SOMEONE CLAIMED a test covers a story. It catches the case the
+# conformance audit actually found (a story with no test at all); it is not
+# evidence that the test asserts the right thing. Read a marker as a
+# pointer to where the argument lives, never as the argument.
+#
+# `testable: false` marks a story that no fixture can express -- the
+# absence of a feature. It is distinct from `covered: false`, which is a
+# gap. A story is only allowed to be untestable with a stated reason.
+
+- id: 1
+  summary: One file under hosts/ picks up every layer its facts route it through.
+  covered: true
+- id: 2
+  summary: A host's position is validated against the declared layout, never inferred.
+  covered: true
+- id: 3
+  summary: A merge policy is declared once and applies to every host walking that layer.
+  covered: true
+- id: 4
+  summary: One key-path glob syntax, shared by merge policies and declared secret keys.
+  covered: true
+- id: 5
+  summary: The most specific declared policy wins outright, never blended with an ancestor's.
+  covered: true
+- id: 6
+  summary: An unresolvable tie between equally specific policies is an error, not a silent pick.
+  covered: true
+- id: 7
+  summary: '!remove deletes an inherited key, scalar element, or tuple-matched map element.'
+  covered: true
+- id: 8
+  summary: A !remove that matches nothing in any walked layer is a validation error.
+  covered: true
+- id: 9
+  summary: Absent, null, and [] are three distinct states; only absent continues the walk.
+  covered: true
+- id: 10
+  summary: All four list strategies share one ordering rule.
+  covered: true
+- id: 11
+  summary: Element equality is exact - same type, same value, no case folding or coercion.
+  covered: true
+- id: 12
+  summary: A policy whose strategy never meets a shape it can bind to is a validation error.
+  covered: true
+- id: 13
+  summary: A duplicate element within one layer under a comparing strategy is an error.
+  covered: true
+- id: 14
+  summary: An unheadered file in an owned directory is an error, never a cleanup target.
+  covered: true
+- id: 15
+  summary: 'The artifact namespaces all resolved data under reverie:, with reverie_meta: beside it.'
+  covered: true
+- id: 16
+  summary: The artifact carries no timestamp and is byte-for-byte reproducible.
+  covered: true
+- id: 17
+  summary: A failed compile leaves the output directory exactly as it was (all-or-nothing).
+  covered: true
+- id: 18
+  summary: Every error carries a phase.condition id, a phase, and file/line where one exists.
+  covered: true
+- id: 19
+  summary: Every error within a phase is collected before the compile aborts at the boundary.
+  covered: true
+- id: 20
+  summary: No flag anywhere downgrades an error to a warning.
+  covered: false
+  testable: false
+  # The absence of a feature. No fixture can express "this flag does not
+  # exist" -- a test asserting an unknown flag is rejected would pin the
+  # argument parser's behaviour, which the spec puts out of scope
+  # (Out of Scope: conventional CLI plumbing). The guarantee is held by
+  # ADR 0009 and by there being no such flag to find in the code.
+- id: 21
+  summary: A !vault scalar is copied into the artifact untouched for Ansible to decrypt.
+  covered: true
+- id: 22
+  summary: An unencrypted value at a declared secret key path is rejected.
+  covered: true
+- id: 23
+  summary: A !secret address resolves to the backend's native call only at emit time.
+  covered: true
+- id: 24
+  summary: A !secret address participates in unique and tuple matching, unlike !vault.
+  covered: true
+- id: 25
+  summary: rsop reports every contributing layer and its outcome, not just the winner.
+  covered: true
+- id: 26
+  summary: RSOP redacts a !vault value but keeps attribution; a !secret address shows in full.
+  covered: true
+- id: 27
+  summary: rsop --output refuses a path inside the source tree or an owned directory.
+  covered: true
+- id: 28
+  summary: rsop works correctly in a checkout where compile has never run.
+  covered: true
+- id: 29
+  summary: A failed compile exits non-zero with a complete, machine-parseable diagnostic set.
+  covered: true
+- id: 30
+  summary: Recompiling a checked-out tree and diffing the result is a drift-detection gate.
+  covered: true
+- id: 31
+  summary: A required chain entry with no file on disk is an enumerate error naming its context.
+  covered: true
+- id: 32
+  summary: An unaddressed layer file is normal; an addressed-but-missing one is always an error.
+  covered: true
+- id: 33
+  summary: One inventory group per distinct value of each declared fact, with a prefix override.
+  covered: true
+- id: 34
+  summary: Reverie never emits group_vars of its own.
+  covered: true
+- id: 35
+  summary: An emitted group name colliding with a host name is a caught enumerate error.
+  covered: true
+- id: 36
+  summary: Every error condition is a member of a closed, documented, fixture-backed list.
+  covered: true
+- id: 37
+  summary: Prose documentation is generated from machine-readable closed lists, checked for staleness.
+  covered: true
+- id: 38
+  summary: The conformance fixture set is real directories, runnable against any implementation.
+  covered: true
+- id: 39
+  summary: A missing source or host argument is a named configure error, not a parser message.
+  covered: true
+- id: 40
+  summary: A directory with no reverie.yml fails with a clear configure error, not a traceback.
+  covered: true

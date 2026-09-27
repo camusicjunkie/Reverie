@@ -5,6 +5,7 @@ Direct unit tests over literal key paths -- no fixture tree or subprocess.
 
 from __future__ import annotations
 
+import pytest
 from dataclasses import dataclass
 
 from reverie import keypath
@@ -21,6 +22,7 @@ def test_star_matches_exactly_one_segment():
     assert not keypath.matches("settings/*", "settings")
 
 
+@pytest.mark.story(4)
 def test_double_star_matches_zero_or_more_segments():
     assert keypath.matches("settings/**", "settings")
     assert keypath.matches("settings/**", "settings/region")

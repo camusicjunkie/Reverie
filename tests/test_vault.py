@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
@@ -24,6 +25,7 @@ def _load_artifact(path) -> dict:
     return yaml.load(path.read_text(encoding="utf-8"), Loader=_VaultAwareLoader)
 
 
+@pytest.mark.story(21)
 def test_vault_scalar_passes_through_untouched(fixture_dir):
     source = fixture_dir("merge")
     (source / "roles" / "web.yml").write_text(
@@ -157,6 +159,7 @@ def test_vault_scalar_under_tuple_key_is_a_validate_error(fixture_dir):
     assert_diagnostic(diagnostics, "validate.secret_not_comparable", key_path="groups")
 
 
+@pytest.mark.story(22)
 def test_declared_secret_key_with_plaintext_value_is_a_validate_error(fixture_dir):
     source = fixture_dir("merge")
     (source / "reverie.yml").write_text(

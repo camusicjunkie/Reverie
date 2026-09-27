@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
@@ -26,6 +27,7 @@ def test_scalar_and_map_strategies_resolve_correctly(fixture_dir):
     }
 
 
+@pytest.mark.story(5)
 def test_more_specific_declared_policy_wins_over_ancestor_strategy(fixture_dir):
     source = fixture_dir("merge")
     (source / "reverie.yml").write_text(
@@ -51,6 +53,7 @@ def test_more_specific_declared_policy_wins_over_ancestor_strategy(fixture_dir):
     assert artifact["reverie"]["nested"]["a"] == {"x": 99}
 
 
+@pytest.mark.story(7)
 def test_remove_deletes_key_defined_by_a_more_general_layer(fixture_dir):
     source = fixture_dir("layered")
     (source / "roles" / "web.yml").write_text("region: !remove\nport: 80\n", encoding="utf-8", newline="")
@@ -62,6 +65,7 @@ def test_remove_deletes_key_defined_by_a_more_general_layer(fixture_dir):
     assert artifact["reverie"] == {"env": "prod", "port": 80, "dc": "dublin", "role": "web"}
 
 
+@pytest.mark.story(8)
 def test_remove_targeting_only_a_more_specific_layer_is_a_validate_error(fixture_dir):
     source = fixture_dir("layered")
     (source / "roles" / "web.yml").write_text("port: !remove\n", encoding="utf-8", newline="")
@@ -76,6 +80,7 @@ def test_remove_targeting_only_a_more_specific_layer_is_a_validate_error(fixture
     assert_diagnostic(diagnostics, "validate.remove_matches_nothing")
 
 
+@pytest.mark.story(12)
 def test_declared_strategy_never_applying_to_a_scalar_is_a_validate_error(fixture_dir):
     source = fixture_dir("merge")
     (source / "reverie.yml").write_text(
@@ -160,6 +165,7 @@ def test_missing_strategy_entry_is_a_configure_error(fixture_dir):
     )
 
 
+@pytest.mark.story(6)
 def test_ambiguous_equally_specific_declarations_is_a_configure_error(fixture_dir):
     source = fixture_dir("minimal")
     (source / "reverie.yml").write_text(

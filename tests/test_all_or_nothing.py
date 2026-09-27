@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from tests.conftest import assert_diagnostic, owned_output, run_reverie
 
 
@@ -84,6 +86,7 @@ def test_a_validate_failure_leaves_the_owned_directories_untouched(fixture_dir):
     _failed_compile(source, before, "validate.pattern_matches_nothing")
 
 
+@pytest.mark.story(17)
 def test_an_emit_failure_leaves_the_owned_directories_untouched(fixture_dir):
     source, before = _compiled(fixture_dir)
     # The phase where a write and a failure sit closest together: the

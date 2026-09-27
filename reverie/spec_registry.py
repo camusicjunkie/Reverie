@@ -67,6 +67,22 @@ def contributor_outcomes() -> list[str]:
 
 
 @functools.lru_cache
+def user_stories() -> dict[int, dict]:
+    """Map of user story number -> its registry entry (summary, covered, testable).
+
+    The wording lives in the implementation spec (issue #29); this is the
+    closed list of story *numbers* plus a label for each, so a coverage
+    check can name what it is complaining about.
+    """
+
+    return {entry["id"]: entry for entry in _load_yaml("user-stories.yml")}
+
+
+def covered_user_stories() -> dict[int, dict]:
+    return {id: entry for id, entry in user_stories().items() if entry.get("covered")}
+
+
+@functools.lru_cache
 def rsop_vocabulary() -> dict[str, object]:
     return dict(_load_yaml("rsop-vocabulary.yml"))
 

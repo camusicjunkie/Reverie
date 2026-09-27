@@ -8,7 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from reverie.spec_registry import error_conditions, implemented_error_conditions
+from reverie.spec_registry import (
+    covered_user_stories,
+    error_conditions,
+    implemented_error_conditions,
+    user_stories,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -66,18 +71,62 @@ def _is_full_test_run(session: pytest.Session) -> bool:
     return all_test_files <= collected_files
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "story(*numbers): the user story (spec/user-stories.yml) this case argues for.",
+    )
+
+
+def _declared_stories(session: pytest.Session) -> set[int]:
+    """Every story number the collected tests declare via `@pytest.mark.story`."""
+
+    declared: set[int] = set()
+    for item in session.items:
+        for marker in item.iter_markers(name="story"):
+            declared.update(marker.args)
+    return declared
+
+
+def _report(session: pytest.Session, message: str) -> None:
+    terminal = session.config.pluginmanager.get_plugin("terminalreporter")
+    if terminal is not None:
+        terminal.write_line(message, red=True)
+    session.exitstatus = 1
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if exitstatus != 0 or not _is_full_test_run(session):
         return
+
     missing = set(implemented_error_conditions()) - _asserted_ids
     if missing:
-        terminal = session.config.pluginmanager.get_plugin("terminalreporter")
-        if terminal is not None:
-            terminal.write_line(
-                f"registry ids marked implemented with no fixture case: {sorted(missing)}",
-                red=True,
-            )
-        session.exitstatus = 1
+        _report(session, f"registry ids marked implemented with no fixture case: {sorted(missing)}")
+
+    # The same rule one level up, over user stories (issue #52). Weaker
+    # than the id check by construction: a marker is a claim, where an
+    # asserted id is evidence -- a story is prose, so nothing can be
+    # compared against it (see the note in spec/user-stories.yml). What it
+    # does catch is the case the conformance audit found, a story with no
+    # test at all.
+    declared = _declared_stories(session)
+    registry = user_stories()
+
+    uncovered = set(covered_user_stories()) - declared
+    if uncovered:
+        _report(session, f"user stories marked covered with no test declaring them: {sorted(uncovered)}")
+
+    unmarked = {number for number in declared - set(covered_user_stories()) if number in registry}
+    if unmarked:
+        _report(
+            session,
+            "user stories a test declares but the registry does not mark covered "
+            f"(set `covered: true`): {sorted(unmarked)}",
+        )
+
+    unknown = declared - set(registry)
+    if unknown:
+        _report(session, f"tests declare story numbers that are not registered: {sorted(unknown)}")
 
 
 @pytest.fixture

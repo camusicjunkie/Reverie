@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from reverie.errors import PhaseFailed
 from reverie.phases import emit as emit_phase
 from reverie.phases.configure import SourceConfig
@@ -140,6 +141,7 @@ def test_host_set_mismatch_between_resolve_and_emit_is_an_emit_error(tmp_path):
     assert_diagnostic(diagnostics, "emit.host_set_mismatch")
 
 
+@pytest.mark.story(19)
 def test_two_distinct_conditions_in_one_phase_are_collected_together(fixture_dir):
     """Issue #51, user story 19 -- collect every error within a phase.
 

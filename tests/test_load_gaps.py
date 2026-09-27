@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from tests.conftest import assert_diagnostic, run_reverie
 
 
@@ -15,6 +16,7 @@ def _write_layer(source, text: str) -> None:
     (source / "defaults" / "common.yml").write_text(text, encoding="utf-8", newline="")
 
 
+@pytest.mark.story(18)
 def test_duplicate_key_in_a_mapping_is_a_load_error(fixture_dir):
     source = fixture_dir("minimal")
     _write_layer(source, "site: dublin\nsite: paris\n")

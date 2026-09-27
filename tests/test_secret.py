@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.conftest import assert_diagnostic, run_reverie
@@ -20,6 +21,7 @@ def _load_artifact(path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+@pytest.mark.story(23)
 def test_secret_translates_to_backend_lookup_at_emit(fixture_dir):
     source = fixture_dir("merge")
     _add_secret_backend(source)
@@ -61,6 +63,7 @@ def test_secret_address_never_appears_as_ciphertext_or_bare_plaintext(fixture_di
     assert "port: '{{ lookup(" in artifact_text or 'port: "{{ lookup(' in artifact_text
 
 
+@pytest.mark.story(24)
 def test_secret_addresses_merge_under_unique(fixture_dir):
     source = fixture_dir("merge_lists")
     _add_secret_backend(source)

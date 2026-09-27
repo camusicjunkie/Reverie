@@ -8,6 +8,7 @@ shape, and that generated prose docs aren't stale.
 
 from __future__ import annotations
 
+import pytest
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from reverie import spec_registry
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+@pytest.mark.story(36)
 def test_every_error_condition_id_matches_a_registered_phase():
     for id, entry in spec_registry.error_conditions().items():
         assert entry["phase"] in spec_registry.PHASES, f"{id}: unregistered phase {entry['phase']!r}"
@@ -70,6 +72,7 @@ def test_deleted_ids_never_reappear():
     assert deleted.isdisjoint(spec_registry.warnings())
 
 
+@pytest.mark.story(37)
 def test_generated_docs_are_not_stale():
     sys.path.insert(0, str(REPO_ROOT))
     from scripts.generate_spec_docs import OUTPUT, render
