@@ -98,15 +98,84 @@ def fixture_dir(tmp_path):
     return _copy
 
 
-def run_reverie(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
-    """Drive the real CLI through the process boundary (the one test seam)."""
+# The two directories the compiler owns and may write to (CONTEXT.md
+# "Owned directory") -- the whole of what a failed compile must leave alone.
+OWNED_DIRECTORIES = ("host_vars", "inventory")
+
+
+def owned_output(source: Path) -> dict[str, bytes]:
+    """Every file under `source`'s owned directories, keyed by relative path.
+
+    The bytes, not a parse: what a failed compile must leave untouched is
+    the file as committed, byte for byte.
+    """
+
+    snapshot: dict[str, bytes] = {}
+    for directory in OWNED_DIRECTORIES:
+        root = source / directory
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*")):
+            if path.is_file():
+                snapshot[str(path.relative_to(source)).replace("\\", "/")] = path.read_bytes()
+    return snapshot
+
+
+def _source_argument(args: tuple[str, ...]) -> Path | None:
+    """The source tree among `args`, if one is both named and present.
+
+    Every invocation of either verb takes `<source>` as its first
+    positional, so the first argument naming a directory that holds a
+    `reverie.yml` is it. A configure-phase case that points at a missing
+    directory, or at one with no `reverie.yml`, simply yields None -- there
+    is no owned directory to protect in that case anyway.
+    """
+
+    for arg in args:
+        candidate = Path(arg)
+        if candidate.is_dir() and (candidate / "reverie.yml").exists():
+            return candidate
+    return None
+
+
+def run_reverie(
+    *args: str, cwd: Path | None = None, check_output_unchanged: bool = True
+) -> subprocess.CompletedProcess:
+    """Drive the real CLI through the process boundary (the one test seam).
+
+    A run that *fails* additionally has emission's all-or-nothing guarantee
+    asserted for it: the owned directories must come out byte-identical to
+    how they went in (user story 17, ADR 0009). That check lives here, on
+    the seam every test already goes through, so a newly added error case
+    inherits it instead of having to remember it -- the same reason
+    `assert_diagnostic` holds every diagnostic to its registry field set
+    rather than leaving each test to spell it out.
+
+    `check_output_unchanged=False` opts out, for a case that deliberately
+    expects a partial write. Nothing needs it today.
+    """
+
+    source = _source_argument(args) if check_output_unchanged else None
+    before = owned_output(source) if source is not None else None
 
     env = dict(os.environ)
     env["PYTHONPATH"] = str(REPO_ROOT)
-    return subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-m", "reverie", *args],
         cwd=str(cwd or REPO_ROOT),
         capture_output=True,
         text=True,
         env=env,
     )
+
+    if before is not None and result.returncode != 0:
+        after = owned_output(source)
+        if after != before:
+            appeared_or_vanished = sorted(set(before) ^ set(after))
+            rewritten = sorted(p for p in before if p in after and before[p] != after[p])
+            raise AssertionError(
+                "a failed compile must leave the owned directories byte-identical (ADR 0009) -- "
+                f"appeared or vanished: {appeared_or_vanished}, rewritten: {rewritten}"
+            )
+
+    return result
