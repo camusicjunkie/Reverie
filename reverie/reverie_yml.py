@@ -87,7 +87,7 @@ class Field:
             return []
         return [(key, self.field(key)) for key in self.value]
 
-    def shaped(self, shape: type | tuple[type, ...]) -> Any | None:
+    def shaped(self, shape: type) -> Any | None:
         """This field's value if it has `shape`, otherwise None.
 
         The one shape test, so `isinstance` conventions don't multiply one
@@ -101,9 +101,12 @@ class Field:
         """Report `condition` against this field.
 
         The one path a configure-phase diagnostic about a field goes
-        through: `file` is the document's, and any `line` the registry
-        declares for the condition is passed as `line=self.line` -- never
-        recovered by a walk over the node tree at the call site.
+        through. `file` is the document's; every other key the registry
+        declares for the condition is the caller's to pass, including
+        `line`, written as `line=field.line` -- which is the point: a
+        position is read off the field, never recovered by a walk over the
+        node tree at the call site. What each condition carries stays a
+        statement `configure` makes, since it owns the schema.
         """
 
         collector.add(condition, file=self.file, **fields)

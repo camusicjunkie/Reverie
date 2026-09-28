@@ -14,6 +14,10 @@ One top-level key of a host's own file, read before any layer is loaded and used
 **Source tree**:
 The host layer, the declared chain, and the optional defaults floor together — everything `reverie.yml` and its location define.
 
+**Field** (of `reverie.yml`):
+One field of the `reverie.yml` document, read as its value and its position together — the unit `configure` checks against the file's schema, and the unit a configure-phase diagnostic is reported against. The document is read once, so a field's line is something it carries rather than something a caller recovers by walking the parse tree, and what fields exist, what shapes they take and what each violation is called stay with `configure`.
+_Avoid_: using it for an **error condition**'s declared fields (the keys a diagnostic carries), and node (PyYAML's parse tree, which nothing outside the read walks).
+
 **Chain**:
 The ordered sequence of layer addresses declared in `reverie.yml` that a host walks during resolution, most general to most specific.
 _Avoid_: ResolutionPrecedence (Datum's name).

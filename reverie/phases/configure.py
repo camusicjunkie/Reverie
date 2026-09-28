@@ -140,9 +140,13 @@ def configure(source_arg: str | None) -> SourceConfig:
         collector.add("configure.malformed_reverie_yml", file=str(reverie_yml_path), detail=str(exc))
         collector.raise_if_any()
 
-    # A document with no content -- a blank file, or a bare `null` -- is an
-    # empty declaration, and every field below then reads as absent. Only a
-    # root that holds something and is not a mapping is malformed.
+    # A root holding nothing -- a blank file, a bare `null`, and equally the
+    # empty `[]`, `""`, `0` and `false` a falsy test cannot tell from them --
+    # is read as an empty declaration, and every field below then reads as
+    # absent. Only a root that holds something and is not a mapping is
+    # malformed. That the four empty non-mappings go unnamed is the same
+    # silent drop `secrets:`, `secret_backend:` and `inventory:` make, and
+    # belongs with them in issue #58 rather than in a prefactor.
     if document.value and not isinstance(document.value, dict):
         document.report(
             collector,
@@ -163,18 +167,18 @@ def configure(source_arg: str | None) -> SourceConfig:
 
     chain: list[ChainEntry] = []
     for entry_field in document.field("chain").elements():
-        entry = entry_field.value
-        if isinstance(entry, str):
-            address_field = entry_field
-            chain.append(ChainEntry(address=entry))
-        elif isinstance(entry, dict) and isinstance(entry.get("address"), str):
-            address_field = entry_field.field("address")
-            chain.append(ChainEntry(address=entry["address"], optional=bool(entry.get("optional", False))))
-        else:
-            entry_field.report(collector, "configure.malformed_chain_entry", entry=entry)
+        # An entry is a bare address, or a mapping declaring one -- and the
+        # address is the field a template violation is reported against
+        # either way.
+        address_field = entry_field if entry_field.shaped(str) is not None else entry_field.field("address")
+        address = address_field.shaped(str)
+        if address is None:
+            entry_field.report(collector, "configure.malformed_chain_entry", entry=entry_field.value)
             continue
 
-        _validate_template(chain[-1].address, address_field, collector)
+        optional = bool(entry_field.field("optional").value)
+        chain.append(ChainEntry(address=address, optional=optional))
+        _validate_template(address, address_field, collector)
 
     defaults_field = document.field("defaults")
     defaults = defaults_field.value
@@ -193,12 +197,12 @@ def configure(source_arg: str | None) -> SourceConfig:
     merge_field = document.field("merge")
     merge_policies: list[MergePolicy] = []
     for pattern, entry_field in merge_field.entries():
-        entry = entry_field.value
         tuple_keys = None
         declares_tuple_keys = False
-        if isinstance(entry, str):
-            strategy = entry
-        elif isinstance(entry, dict):
+        bare_strategy = entry_field.shaped(str)
+        if bare_strategy is not None:
+            strategy = bare_strategy
+        elif entry_field.shaped(dict) is not None:
             for key, _value_field in entry_field.entries():
                 if key not in _MERGE_ENTRY_KEYS:
                     entry_field.report(collector, "configure.unknown_entry_key", key=key)
@@ -239,7 +243,9 @@ def configure(source_arg: str | None) -> SourceConfig:
         )
 
     secrets = [
-        element.value for element in document.field("secrets").elements() if isinstance(element.value, str)
+        address
+        for element in document.field("secrets").elements()
+        if (address := element.shaped(str)) is not None
     ]
 
     backend_field = document.field("secret_backend")
@@ -253,13 +259,15 @@ def configure(source_arg: str | None) -> SourceConfig:
     inventory_field = document.field("inventory")
     inventory_groups: list[GroupFact] = []
     for element in inventory_field.field("groups").elements():
-        entry = element.value
-        if isinstance(entry, str):
-            inventory_groups.append(GroupFact(fact=entry))
-        elif isinstance(entry, dict) and isinstance(entry.get("fact"), str):
-            inventory_groups.append(
-                GroupFact(fact=entry["fact"], prefix=element.field("prefix").shaped(str))
-            )
+        # A group is a bare fact name, or a mapping declaring one with an
+        # optional prefix.
+        bare_fact = element.shaped(str)
+        if bare_fact is not None:
+            inventory_groups.append(GroupFact(fact=bare_fact))
+            continue
+        fact = element.field("fact").shaped(str)
+        if fact is not None:
+            inventory_groups.append(GroupFact(fact=fact, prefix=element.field("prefix").shaped(str)))
 
     ansible_host_fact = inventory_field.field("ansible_host").shaped(str)
 
