@@ -12,27 +12,12 @@ conformance fixtures.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from reverie import merge_plan, merge_walk
 from reverie.phases.configure import MergePolicy
-from reverie.phases.enumerate import LayerRef
-from reverie.phases.load import LoadedHost
 from reverie.yaml_io import Remove
-
-
-def host(*layers: dict) -> LoadedHost:
-    """A loaded host over `layers`, most general first, addressed `layer0`..."""
-
-    return LoadedHost(
-        name="h1",
-        layers=[
-            (LayerRef(address=f"layer{index}", path=Path(f"layer{index}.yml")), data)
-            for index, data in enumerate(layers)
-        ],
-    )
+from tests.conftest import loaded_host as host
 
 
 def walk(*layers: dict, policies: list[MergePolicy] | None = None) -> list[merge_walk.Merge]:

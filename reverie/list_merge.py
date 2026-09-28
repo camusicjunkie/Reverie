@@ -144,10 +144,11 @@ def element_groups(
     position and reaches only *downward*, matching elements contributed by
     strictly more general layers.
 
-    `resolve.merge_lists` turns each group into one element (for
-    `deep_tuple`, by merging it as a map), and `validate` walks the same
-    groups to see the key paths that merge will visit -- so the two agree
-    by construction rather than by coincidence (issue #47). A group of one
+    `merge_walk.list_elements` is the one caller that groups a list, so
+    every consumer of a host's merges sees the same grouping by
+    construction rather than by coincidence (issue #47): `resolve` turns
+    each group into one element (for `deep_tuple`, by merging it as a
+    map), `validate` judges the merges inside it. A group of one
     is never merged at all, under any strategy: its lone element is already
     the answer, so nothing beneath it is ever visited.
     """

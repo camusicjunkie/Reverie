@@ -8,7 +8,9 @@ computed it to execute the merge, and `validate` computed a cruder version
 of it -- via raw key-path text flattened across every host -- to check for
 policies that never actually bind. Flattening across hosts meant a policy
 that mis-shapes on only one host in a multi-host estate was invisible,
-since another host's correctly-shaped contribution would mask it.
+since another host's correctly-shaped contribution would mask it. Both now
+read their decisions from `merge_walk`, which binds through this module
+once per merge (issues #53, #56).
 
 This module answers the question and nothing more: it never raises (every
 error condition stays scoped to exactly one phase, per ADR 0009), and it
@@ -45,8 +47,9 @@ class BindingDecision:
     strategy: str
     shape: str
     applied: bool
-    # Non-`!remove` contributions, most-general to most-specific -- what a
-    # caller merges (resolve) or recurses into (validate) next.
+    # Non-`!remove` contributions, most-general to most-specific -- what
+    # the merge actually operates on, and what `merge_walk` recurses into
+    # to reach the merges beneath this one.
     effective: list[Any]
     # The ambient strategy this key path's children inherit, per
     # CONTEXT.md "Strategy": `deep` propagates itself, everything else

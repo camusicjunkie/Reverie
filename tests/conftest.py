@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from reverie.phases.enumerate import LayerRef
+from reverie.phases.load import LoadedHost
 from reverie.spec_registry import (
     covered_user_stories,
     error_conditions,
@@ -22,6 +24,25 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 # "every registry id needs a fixture case" mechanical check (issue #31)
 # compares this against implemented_error_conditions() at session end.
 _asserted_ids: set[str] = set()
+
+
+def loaded_host(*layers: dict, name: str = "h1") -> LoadedHost:
+    """A loaded host over literal `layers`, most general first.
+
+    The unit tests over the shared primitives (`merge_walk`, and the
+    policy verdicts `validate` builds from it) exercise them against layer
+    data written inline rather than through a full compile, so they all
+    need the same stand-in for what `load` would have produced. Addresses
+    are `layer0`, `layer1`, ... in the order given.
+    """
+
+    return LoadedHost(
+        name=name,
+        layers=[
+            (LayerRef(address=f"layer{index}", path=Path(f"layer{index}.yml")), data)
+            for index, data in enumerate(layers)
+        ],
+    )
 
 
 def assert_diagnostic(diagnostics: list[dict], id: str, **expected_fields) -> dict:

@@ -16,13 +16,12 @@ policy inside a folded element that `resolve` executed and `validate`
 rejected (issue #47), and fold interiors `resolve` merged and `rsop` filed
 no record for (issue #48).
 
-`resolve` consumes this walk and keeps no traversal of its own. `validate`
-and `rsop` still carry theirs, deliberately: they move onto the walk in
-issues #56 and #57, and until they do, their copies are what they always
-were -- prose promises to mirror a traversal now written down here, rather
-than the structural guarantee the migration makes of them. The interface
-below is designed for all three, so neither of those tickets has to widen
-it.
+`resolve` and `validate` consume this walk and keep no traversal of their
+own. `rsop` still carries its own, deliberately: it moves onto the walk in
+issue #57, and until it does, its copy is what it always was -- a prose
+promise to mirror a traversal now written down here, rather than the
+structural guarantee the migration makes of it. The interface below was
+designed for all three, so that ticket does not have to widen it.
 
 The walk computes no values and raises nothing. A `Merge` carries what the
 merge *is*: the key path that bound it, the RSOP address it is filed
