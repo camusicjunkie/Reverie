@@ -30,6 +30,32 @@ _TUPLE_STRATEGIES = {"unique_tuple", "deep_tuple"}
 _MERGE_ENTRY_KEYS = {"strategy", "tuple_keys"}
 
 
+def _report_if_malformed(
+    field: reverie_yml.Field,
+    shape: type,
+    condition: str,
+    collector: DiagnosticCollector,
+) -> None:
+    """Name `condition` if `field` holds something that is not `shape`.
+
+    A field holding null declares nothing, and every optional block in the
+    schema allows that: `secrets:` with nothing after it is a block with no
+    secrets in it, the same as no `secrets:` line. That is the rule the
+    document root follows too, so the whole file reads one way -- null
+    declares nothing, anything else must have the shape the schema says.
+
+    A field holding something of the *wrong* shape is the other case, and it
+    used to reach the same empty default in silence. That is
+    degrade-and-continue, which ADR 0009 forbids outright, and for `secrets:`
+    it disarms the plaintext guardrail (ADR 0006) while the compile passes.
+
+    The position comes off the field, which already carries it.
+    """
+
+    if field.value is not None and field.shaped(shape) is None:
+        field.report(collector, condition, line=field.line)
+
+
 def _validate_template(text: str, field: reverie_yml.Field, collector: DiagnosticCollector) -> None:
     """Check every `{{ ... }}` block in `text` addresses `host.<identifier>` only.
 
@@ -140,14 +166,12 @@ def configure(source_arg: str | None) -> SourceConfig:
         collector.add("configure.malformed_reverie_yml", file=str(reverie_yml_path), detail=str(exc))
         collector.raise_if_any()
 
-    # A root holding nothing -- a blank file, a bare `null`, and equally the
-    # empty `[]`, `""`, `0` and `false` a falsy test cannot tell from them --
-    # is read as an empty declaration, and every field below then reads as
-    # absent. Only a root that holds something and is not a mapping is
-    # malformed. That the four empty non-mappings go unnamed is the same
-    # silent drop `secrets:`, `secret_backend:` and `inventory:` make, and
-    # belongs with them in issue #58 rather than in a prefactor.
-    if document.value and not isinstance(document.value, dict):
+    # A root holding nothing -- a blank file or a bare `null` -- is an empty
+    # declaration, and every field below then reads as absent. Anything else
+    # that is not a mapping is a malformed root, the empty `[]`, `""`, `0`
+    # and `false` included: the test is against null, not against falsity,
+    # which cannot tell the four apart from a document that declares nothing.
+    if document.value is not None and not isinstance(document.value, dict):
         document.report(
             collector,
             "configure.malformed_reverie_yml",
@@ -165,8 +189,10 @@ def configure(source_arg: str | None) -> SourceConfig:
     if isinstance(layout, str) and layout:
         _validate_template(layout, layout_field, collector)
 
+    chain_field = document.field("chain")
+    _report_if_malformed(chain_field, list, "configure.malformed_chain", collector)
     chain: list[ChainEntry] = []
-    for entry_field in document.field("chain").elements():
+    for entry_field in chain_field.elements():
         # An entry is a bare address, or a mapping declaring one -- and the
         # address is the field a template violation is reported against
         # either way.
@@ -195,6 +221,9 @@ def configure(source_arg: str | None) -> SourceConfig:
         defaults = None
 
     merge_field = document.field("merge")
+    # A `merge:` of the wrong shape discards every policy in the file, so
+    # most-specific-wins quietly becomes ambient `first` everywhere.
+    _report_if_malformed(merge_field, dict, "configure.malformed_merge", collector)
     merge_policies: list[MergePolicy] = []
     for pattern, entry_field in merge_field.entries():
         tuple_keys = None
@@ -242,14 +271,32 @@ def configure(source_arg: str | None) -> SourceConfig:
             collector, "configure.ambiguous_specificity", key_path=first
         )
 
-    secrets = [
-        address
-        for element in document.field("secrets").elements()
-        if (address := element.shaped(str)) is not None
-    ]
+    secrets_field = document.field("secrets")
+    _report_if_malformed(secrets_field, list, "configure.malformed_secrets", collector)
+    secrets: list[str] = []
+    for element in secrets_field.elements():
+        address = element.shaped(str)
+        if address is None:
+            # No `entry=` echo, unlike `configure.malformed_chain_entry`:
+            # `line` already points at it, and ADR 0006 keeps Reverie from
+            # holding secret material it could then print (a malformed entry
+            # is, by definition, not the key path it was meant to be).
+            element.report(collector, "configure.malformed_secret_entry", line=element.line)
+            continue
+        secrets.append(address)
 
     backend_field = document.field("secret_backend")
     lookup = backend_field.field("lookup").shaped(str)
+    # Not foldable into `_report_if_malformed`: what has to have a shape is
+    # the child `lookup`, not `secret_backend:` itself. The presence test is
+    # the helper's, though -- a `secret_backend:` holding null declares no
+    # backend, which `configure.no_secret_backend` names later if a secret
+    # turns out to need one. A backend that *was* declared and has no usable
+    # lookup is this condition, and never defers to that one.
+    if lookup is None and backend_field.value is not None:
+        backend_field.report(
+            collector, "configure.malformed_secret_backend", line=backend_field.line
+        )
     secret_backend = (
         SecretBackend(lookup=lookup, options=backend_field.field("options").shaped(dict) or {})
         if lookup is not None
@@ -257,8 +304,11 @@ def configure(source_arg: str | None) -> SourceConfig:
     )
 
     inventory_field = document.field("inventory")
+    _report_if_malformed(inventory_field, dict, "configure.malformed_inventory", collector)
+    groups_field = inventory_field.field("groups")
+    _report_if_malformed(groups_field, list, "configure.malformed_inventory_groups", collector)
     inventory_groups: list[GroupFact] = []
-    for element in inventory_field.field("groups").elements():
+    for element in groups_field.elements():
         # A group is a bare fact name, or a mapping declaring one with an
         # optional prefix.
         bare_fact = element.shaped(str)

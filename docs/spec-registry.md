@@ -12,10 +12,17 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.chain_template_illegal_expression` | file, line | yes |
 | `configure.chain_template_nested_reference` | file, line | yes |
 | `configure.chain_template_unknown_namespace` | file, line | yes |
+| `configure.malformed_chain` | file, line | yes |
 | `configure.malformed_chain_entry` | file, entry | yes |
 | `configure.malformed_defaults` | file, defaults | yes |
+| `configure.malformed_inventory` | file, line | yes |
+| `configure.malformed_inventory_groups` | file, line | yes |
 | `configure.malformed_layout` | file, layout | yes |
+| `configure.malformed_merge` | file, line | yes |
 | `configure.malformed_reverie_yml` | file, detail | yes |
+| `configure.malformed_secret_backend` | file, line | yes |
+| `configure.malformed_secret_entry` | file, line | yes |
+| `configure.malformed_secrets` | file, line | yes |
 | `configure.missing_defaults_directory` | file | yes |
 | `configure.missing_host_argument` | -- | yes |
 | `configure.missing_source_argument` | -- | yes |

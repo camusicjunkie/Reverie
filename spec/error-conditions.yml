@@ -108,6 +108,34 @@
   phase: configure
   fields: [file, line]
   implemented: true
+- id: configure.malformed_chain
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_merge
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_secrets
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_secret_entry
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_secret_backend
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_inventory
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_inventory_groups
+  phase: configure
+  fields: [file, line]
+  implemented: true
 
 # --- load --------------------------------------------------------------
 
