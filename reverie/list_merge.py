@@ -144,13 +144,14 @@ def element_groups(
     position and reaches only *downward*, matching elements contributed by
     strictly more general layers.
 
-    `merge_walk.list_elements` is the one caller that groups a list, so
+    `merge_walk` is the one caller that groups a list, so
     every consumer of a host's merges sees the same grouping by
     construction rather than by coincidence (issue #47): `resolve` turns
     each group into one element (for `deep_tuple`, by merging it as a
-    map), `validate` judges the merges inside it. A group of one
-    is never merged at all, under any strategy: its lone element is already
-    the answer, so nothing beneath it is ever visited.
+    map), `validate` judges the merges inside it, and `rsop` attributes
+    their contributors. A group of one is never merged at all, under any
+    strategy: its lone element is already the answer, so nothing beneath it
+    is ever visited.
     """
 
     return [

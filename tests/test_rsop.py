@@ -7,7 +7,11 @@ import json
 import pytest
 import yaml
 
-from tests.conftest import assert_diagnostic, run_reverie
+from reverie import merge_walk, rsop
+from reverie.phases import resolve
+from reverie.phases.configure import MergePolicy
+from reverie.yaml_io import Remove
+from tests.conftest import assert_diagnostic, loaded_host, run_reverie
 
 
 class _TagAwareLoader(yaml.SafeLoader):
@@ -243,3 +247,57 @@ def test_rsop_works_without_compile_having_run(fixture_dir):
     assert result.returncode == 0, result.stderr
     assert not (source / "host_vars").exists()
     assert not (source / "inventory").exists()
+
+
+# Issue #57: RSOP consumes `merge_walk` and keeps no traversal of its own,
+# so coverage is no longer a promise this module makes and could break
+# (issue #48) -- it is the walk's, by construction. These cases pin that
+# construction in place: they are written against literal layer data rather
+# than a fixture compile, because the claim is about the walk and the
+# records standing in one-to-one correspondence, not about any one estate.
+
+
+def _walk_and_records(*layers: dict, policies=None):
+    host = loaded_host(*layers)
+    policies = policies or []
+    merges = list(merge_walk.merges(merge_walk.walk(host, policies)))
+    return merges, rsop.compute_rsop(host, policies)
+
+
+def test_every_merge_the_walk_yields_gets_exactly_one_record_and_no_others():
+    merges, records = _walk_and_records(
+        {"settings": {"region": "eu", "timeout": 30}, "port": 8080},
+        {"settings": {"region": "us"}, "extra": [1, 2]},
+        policies=[MergePolicy(pattern="settings", strategy="deep")],
+    )
+
+    assert len(records) == len(merges)
+    assert set(records) == {rsop.render_address(merge.address) for merge in merges}
+
+
+def test_a_fold_interior_is_covered_because_the_walk_reaches_it_not_because_rsop_looks():
+    merges, records = _walk_and_records(
+        {"groups": [{"name": "admins", "members": ["alice"]}]},
+        {"groups": [{"name": "admins", "members": ["bob"]}]},
+        policies=[MergePolicy(pattern="groups", strategy="deep_tuple", tuple_keys=["name"])],
+    )
+
+    assert "groups[name=admins]/members" in records
+    assert len(records) == len(merges)
+
+
+def test_a_records_value_is_the_value_resolve_would_emit_for_that_merge():
+    merges, records = _walk_and_records(
+        {"settings": {"region": "eu", "gone": 1}},
+        {"settings": {"region": "us", "gone": Remove(None)}},
+        policies=[MergePolicy(pattern="settings", strategy="deep")],
+    )
+
+    for merge in merges:
+        record = records[rsop.render_address(merge.address)]
+        value = resolve.merged_value(merge)
+        if value is resolve.ABSENT:
+            assert record["removed"] is True
+            assert "value" not in record
+        else:
+            assert record["value"] == value

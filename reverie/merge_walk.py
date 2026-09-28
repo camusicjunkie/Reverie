@@ -16,12 +16,10 @@ policy inside a folded element that `resolve` executed and `validate`
 rejected (issue #47), and fold interiors `resolve` merged and `rsop` filed
 no record for (issue #48).
 
-`resolve` and `validate` consume this walk and keep no traversal of their
-own. `rsop` still carries its own, deliberately: it moves onto the walk in
-issue #57, and until it does, its copy is what it always was -- a prose
-promise to mirror a traversal now written down here, rather than the
-structural guarantee the migration makes of it. The interface below was
-designed for all three, so that ticket does not have to widen it.
+All three now consume this walk and keep no traversal of their own, so the
+rules live in one place and a divergence of the kind issues #47 and #48
+recorded has nowhere left to arise: a merge a consumer reports is a merge
+the walk yielded, and a merge the walk yields is one `resolve` executes.
 
 The walk computes no values and raises nothing. A `Merge` carries what the
 merge *is*: the key path that bound it, the RSOP address it is filed
@@ -168,7 +166,7 @@ def merges(nodes: Iterable[Merge]) -> Iterator[Merge]:
             yield from merges(element.interior)
 
 
-def list_elements(
+def _list_elements(
     key_path: str,
     address: tuple[str | ElementSelector, ...],
     effective: Sequence[Contribution],
@@ -177,15 +175,8 @@ def list_elements(
 ) -> tuple[Element, ...]:
     """The elements one list merge keeps, each with the merges inside it.
 
-    Public because a list merge is the one merge a consumer may need to
-    reach on its own, holding a decision it already bound: `rsop` computes
-    a list-shaped key path's value this way so it stays byte-identical to
-    what `compile` emits, without re-deriving how a fold is grouped.
-
-    `address` is where the list itself is filed, and it is not optional:
-    every fold interior is addressed beneath it, so a caller that passed
-    nothing would get selectors hanging off nothing -- an address that
-    looks usable and is wrong.
+    `address` is where the list itself is filed; every fold interior is
+    addressed beneath it.
     """
 
     tuple_keys = decision.policy.tuple_keys if decision.policy else None
@@ -275,7 +266,7 @@ def _merge(
             key_path, address, effective, decision.children_ambient, merge_policies
         )
     elif merge_kind == LIST:
-        elements = list_elements(key_path, address, effective, decision, merge_policies)
+        elements = _list_elements(key_path, address, effective, decision, merge_policies)
 
     return Merge(
         key=key,
