@@ -205,9 +205,11 @@ def _decisions_for_host(host: LoadedHost, merge_policies: list[MergePolicy]) -> 
             if decision.applied and decision.strategy in _MAP_STRATEGIES:
                 walk(child_path, decision.effective, decision.children_ambient)
             elif decision.applied and list_merge.merges_elements_as_maps(decision.strategy):
-                # `resolve.merge_lists` folds each group of matched elements
-                # into one via a map merge at this same key path -- so those
-                # folds' children are decisions this host really computes.
+                # A fold merges each group of matched elements into one via
+                # a map merge at this same key path -- so those folds'
+                # children are decisions this host really computes. Mirrored
+                # from `merge_walk.list_elements` here, consumed from it
+                # once issue #56 retires this walk.
                 tuple_keys = decision.policy.tuple_keys if decision.policy else None
                 for group in list_merge.element_groups(decision.effective, decision.strategy, tuple_keys):
                     if len(group) > 1:  # a lone element survives whole, unmerged

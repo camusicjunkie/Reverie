@@ -21,10 +21,11 @@ declared strategy/pattern, or the ambient one it inherited) and its
 
 The binding decision (policy, effective strategy, shape, applied-or-not) at
 each key path comes from `merge_plan.bind`, the same primitive `resolve`
-executes -- so a list's *value* here is always identical to what `compile`
-would emit for it, via the same `resolve.merge_lists`. Only the per-layer
-contributor bookkeeping is this module's own. Per CONTEXT.md's `Contributor`
-entry, a layer's contribution at a key path resolves to exactly one of:
+executes, and a list's elements from the same `merge_walk.list_elements`
+`resolve` folds -- so a list's *value* here is always identical to what
+`compile` would emit for it. Only the per-layer contributor bookkeeping is
+this module's own. Per CONTEXT.md's `Contributor` entry, a layer's
+contribution at a key path resolves to exactly one of:
 
 - `won` -- the sole survivor under most-specific-wins (an explicit `first`,
   or a shape mismatch falling back to it).
@@ -45,16 +46,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from reverie import list_merge, merge_plan
+from reverie import list_merge, merge_plan, merge_walk
 from reverie.errors import Diagnostic, DiagnosticCollector, PhaseFailed
 from reverie.phases import configure as configure_phase
 from reverie.phases import enumerate as enumerate_phase
 from reverie.phases import load as load_phase
+from reverie.phases import resolve as resolve_phase
 from reverie.phases import validate as validate_phase
 from reverie.phases.configure import MergePolicy, SourceConfig
 from reverie.phases.enumerate import LayerRef
 from reverie.phases.load import LoadedHost
-from reverie.phases.resolve import merge_lists
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
 from reverie.yaml_io import Remove, Vault, dump_flow_scalar, dump_pinned
 
@@ -134,17 +135,17 @@ def _records_inside_fold(
     One address per element group, so two groups contributing the same key
     attribute separately instead of colliding on the list's own path. The
     grouping and the skip of a group of one come from the same
-    `list_merge.element_groups_by_layer` that `resolve.merge_lists` folds
-    by, so these records describe the merges that really happened and no
-    others.
+    `list_merge.element_groups_by_layer` that `merge_walk.list_elements`
+    folds by, so these records describe the merges that really happened and
+    no others.
 
-    The fold's *interior* is then walked here rather than by `resolve`,
-    because only this module tracks which layer contributed each element.
-    So this mirrors `resolve._merge_maps` -- ambient `first`, the group
-    most-general-first, keys in first-contribution order -- exactly as
-    `_record_for_path` already mirrors it for a map's children. The
-    emitted list value still comes from `merge_lists` itself, so the
-    document's *values* remain byte-identical to `compile`'s either way.
+    This is still the third copy of the merge traversal -- it mirrors
+    `merge_walk`'s fold (ambient `first`, the group most-general-first,
+    keys in first-contribution order) rather than consuming it, exactly as
+    `_record_for_path` mirrors the walk for a map's children. Issue #57
+    retires both in favour of `merge_walk.merges`; until then the emitted
+    list value already comes from the walk's own elements, so the
+    document's *values* cannot drift from `compile`'s.
     """
 
     tuple_keys = decision.policy.tuple_keys if decision.policy else None
@@ -240,8 +241,19 @@ def _record_for_path(
     elif decision.applied and strategy in list_merge.LIST_STRATEGIES:
         for layer, _ in effective:
             outcome_by_address[layer.address] = "merged"
-        tuple_keys = policy.tuple_keys if policy else None
-        result = merge_lists(key_path, [v for _, v in effective], strategy, tuple_keys, merge_policies)
+        # This module still renders its own addresses, so it hands the walk
+        # the rendered one as a single step -- it only needs the elements'
+        # values here, and `_records_inside_fold` addresses the interiors.
+        # Issue #57 gives the walk's own address tuple over to the renderer.
+        result = resolve_phase.list_value(
+            merge_walk.list_elements(
+                key_path,
+                (address,),
+                [merge_walk.Contribution(layer, value) for layer, value in effective],
+                decision,
+                merge_policies,
+            )
+        )
         if list_merge.merges_elements_as_maps(strategy):
             _records_inside_fold(records, address, key_path, effective, decision, merge_policies)
     else:

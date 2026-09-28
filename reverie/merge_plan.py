@@ -19,13 +19,15 @@ merged value, `validate` still owns turning a decision into a diagnostic.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable, Sequence, TypeVar
 
 from reverie import keypath, list_merge
 from reverie.phases.configure import MergePolicy
 from reverie.yaml_io import Remove
 
 MAP_STRATEGIES = ("shallow", "deep")
+
+_Contribution = TypeVar("_Contribution")
 
 # Shape verdicts. "absent" means every contribution was `!remove`d away --
 # there is nothing left to bind a strategy to at all.
@@ -52,6 +54,32 @@ class BindingDecision:
     children_ambient: str
 
 
+def effective_contributions(
+    contributions: Sequence[_Contribution],
+    value_of: Callable[[_Contribution], Any] = lambda contribution: contribution,
+) -> list[_Contribution]:
+    """The contributions a merge actually operates on: everything after the
+    last `!remove`, most-general to most-specific.
+
+    A `!remove` clears every more general contribution at the key path and
+    holds no position of its own (CONTEXT.md "!remove"), so what survives
+    is always a suffix of what was contributed -- empty when the most
+    specific contribution was itself a `!remove`.
+
+    `value_of` exists because `merge_walk` applies the same rule to
+    contributions paired with the layer behind each one, where `bind` sees
+    bare values: one rule, two shapes of input.
+    """
+
+    effective: list[_Contribution] = []
+    for contribution in contributions:
+        if isinstance(value_of(contribution), Remove):
+            effective = []
+        else:
+            effective.append(contribution)
+    return effective
+
+
 def bind(
     key_path: str,
     contributions: list[Any],
@@ -61,12 +89,7 @@ def bind(
     """The binding decision for one key path, given its per-layer
     contributions (general to specific, `!remove` included)."""
 
-    effective: list[Any] = []
-    for value in contributions:
-        if isinstance(value, Remove):
-            effective = []
-        else:
-            effective.append(value)
+    effective = effective_contributions(contributions)
 
     policy = keypath.winner(merge_policies, key_path)
     strategy = policy.strategy if policy else ambient_strategy

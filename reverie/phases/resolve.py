@@ -3,33 +3,42 @@
 By design, this phase raises no errors -- anything that could go wrong
 with merge data was already caught in `validate`.
 
-The most specific *declared* policy for a key path wins outright. Where
-nothing is explicitly declared for a key path, it inherits the ambient
-strategy its parent map is being merged under: `deep` recurses (the
-strategy that structurally governs its whole subtree until a more
-specific declaration interrupts it), while `shallow` and the implied
-top-level default both fall back to `first` for their children.
+Which merges a host performs, and in what order, is `reverie.merge_walk`'s
+(issue #53): the most specific *declared* policy for a key path wins
+outright, and where nothing is declared the key path inherits the ambient
+strategy its parent map is being merged under. This phase is the walk's
+first consumer, and it does one thing with it -- turn each merge into a
+value, bottom-up:
 
-List strategies (`append`, `unique`, `unique_tuple`, `deep_tuple`) bind
-only to list-shaped values; on any other shape, most-specific-wins
-applies instead, same as `shallow`/`deep` against a non-map value. Their
-one shared ordering rule -- each distinct element once, at the position
-of its first contribution, layers concatenated most-specific-first -- and
-`!remove`'s list-element semantics live in `reverie.list_merge`.
+- nothing, where every contribution was `!remove`d away;
+- a map, from the merges inside it;
+- a list, one element per element group, folded groups merged as maps;
+- the most specific contribution, for `first` and for every shape a
+  declared strategy could not bind to.
+
+The list strategies' shared ordering rule -- each distinct element once, at
+the position of its first contribution, layers concatenated
+most-specific-first -- and `!remove`'s list-element semantics live in
+`reverie.list_merge`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
-from reverie import list_merge, merge_plan
+from reverie import merge_walk
 from reverie.phases.configure import MergePolicy
 from reverie.phases.load import LoadedHost
 
 PHASE = "resolve"
 
-_ABSENT = object()
+# The value of a merge that resolved to nothing: every contribution to it
+# was `!remove`d away, so the key it merged is absent from the result
+# rather than present and empty. Named, not private, because it is half of
+# `merged_value`'s contract -- comparing against it is the only way a
+# caller tells absence from a value.
+ABSENT = object()
 
 
 @dataclass(frozen=True)
@@ -41,89 +50,52 @@ class ResolvedHost:
     layers_walked: list[str]
 
 
-def _merge_key(
-    key_path: str,
-    contributions: list[Any],
-    merge_policies: list[MergePolicy],
-    ambient_strategy: str,
-) -> Any:
-    """Merge one key path's per-layer values (general to specific)."""
+def merged_value(merge: merge_walk.Merge) -> Any:
+    """What one merge of the walk resolves to, or `ABSENT`."""
 
-    decision = merge_plan.bind(key_path, contributions, merge_policies, ambient_strategy)
+    kind = merge.kind
 
-    if decision.shape == merge_plan.ABSENT:
-        return _ABSENT
-
-    if decision.applied and decision.strategy in merge_plan.MAP_STRATEGIES:
-        return _merge_maps(key_path, decision.effective, merge_policies, decision.children_ambient)
-
-    if decision.applied and decision.strategy in list_merge.LIST_STRATEGIES:
-        tuple_keys = decision.policy.tuple_keys if decision.policy else None
-        return merge_lists(key_path, decision.effective, decision.strategy, tuple_keys, merge_policies)
-
-    # `first`, or a shape mismatch falling back to it -> most-specific-wins.
-    return decision.effective[-1]
+    if kind == merge_walk.REMOVED:
+        return ABSENT
+    if kind == merge_walk.MAP:
+        return merged_map(merge.children)
+    if kind == merge_walk.LIST:
+        return list_value(merge.elements)
+    return merge.effective[-1].value
 
 
-def merge_lists(
-    key_path: str,
-    layer_lists: list[list[Any]],
-    strategy: str,
-    tuple_keys: tuple[str, ...] | None,
-    merge_policies: list[MergePolicy],
-) -> list[Any]:
-    """Merge one key path's per-layer lists under a list strategy.
+def merged_map(children: Sequence[merge_walk.Merge]) -> dict:
+    """The map a map merge resolves to, from the merges inside it.
 
-    Most-specific-first, keep-first-occurrence, clustered by layer -- the
-    grouping itself is `list_merge.element_groups`. `deep_tuple`
-    additionally folds each group of matched elements together via a
-    normal map merge, at this same key path so any nested policy declared
-    under it (e.g. `items/tags`) still applies. The fold is one merge over
-    the whole group, not a chain of pairwise ones, so a nested `!remove`
-    in a matched element reaches every more general contributor to it --
-    the same reach it has anywhere else.
-
-    Public (not `_`-prefixed): `reverie.rsop` calls this directly so a
-    list-shaped key path's RSOP value stays byte-identical to what
-    `resolve` would emit for it, rather than re-deriving list-merge
-    semantics against a private symbol.
+    A child that resolved to nothing is simply absent -- a removed key
+    leaves no trace, not an empty one.
     """
 
-    groups = list_merge.element_groups(layer_lists, strategy, tuple_keys)
+    merged: dict = {}
+    for child in children:
+        value = merged_value(child)
+        if value is not ABSENT:
+            merged[child.key] = value
+    return merged
 
-    if not list_merge.merges_elements_as_maps(strategy):
-        # unique / unique_tuple: the kept (more specific) element survives
-        # whole; under `append` every element is its own group anyway.
-        return [group[-1] for group in groups]
+
+def list_value(elements: Sequence[merge_walk.Element]) -> list[Any]:
+    """The list a list merge resolves to, one value per element group.
+
+    A folded group resolves to the map its interior merges to; every other
+    group keeps its most specific element whole.
+    """
 
     return [
-        _merge_maps(key_path, group, merge_policies, "first") if len(group) > 1 else group[-1]
-        for group in groups
+        merged_map(element.interior) if element.folded else element.contributions[-1].value
+        for element in elements
     ]
-
-
-def _merge_maps(
-    key_path: str,
-    dicts: list[dict],
-    merge_policies: list[MergePolicy],
-    ambient_strategy: str,
-) -> dict:
-    keys = dict.fromkeys(key for d in dicts for key in d)
-    result: dict = {}
-    for key in keys:
-        child_path = f"{key_path}/{key}" if key_path else key
-        contributions = [d[key] for d in dicts if key in d]
-        merged = _merge_key(child_path, contributions, merge_policies, ambient_strategy)
-        if merged is not _ABSENT:
-            result[key] = merged
-    return result
 
 
 def resolve(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy]) -> list[ResolvedHost]:
     resolved: list[ResolvedHost] = []
     for host in loaded_hosts:
-        layer_dicts = [layer_data for _layer, layer_data in host.layers]
-        data = _merge_maps("", layer_dicts, merge_policies, ambient_strategy="first")
+        data = merged_map(merge_walk.walk(host, merge_policies))
         layers_walked = [layer.address for layer, _ in host.layers]
         resolved.append(ResolvedHost(name=host.name, data=data, layers_walked=layers_walked))
     return resolved
