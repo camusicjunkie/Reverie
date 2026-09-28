@@ -11,12 +11,9 @@ from reverie.errors import DiagnosticCollector
 from reverie.phases.configure import SecretBackend
 from reverie.phases.enumerate import HostPlan, LayerRef
 from reverie.yaml_io import (
-    EmptySecretAddressError,
     Remove,
     Secret,
     SourceConditionError,
-    UnknownTagError,
-    ValueDomainError,
     load_closed_domain,
 )
 
@@ -55,28 +52,15 @@ def load_layers(plans: list[HostPlan], secret_backend: SecretBackend | None = No
         try:
             data = load_closed_domain(text, host_file=layer.path in host_files)
         except SourceConditionError as exc:
-            collector.add(exc.condition, file=str(layer.path), line=exc.line)
-            data = None
-        except ValueDomainError as exc:
-            collector.add(
-                "load.value_out_of_domain",
-                file=str(layer.path),
-                line=exc.line,
-                kind=exc.kind,
-            )
-            data = None
-        except UnknownTagError as exc:
-            collector.add(
-                "load.unknown_tag",
-                file=str(layer.path),
-                line=exc.line,
-                tag=exc.tag,
-            )
-            data = None
-        except EmptySecretAddressError:
-            collector.add("load.empty_secret_address")
+            # The condition names itself and names its own fields; the
+            # file is this phase's to add, being the one field it knows
+            # and the read doesn't.
+            collector.add(exc.condition, **exc.declared_fields(file=str(layer.path)))
             data = None
         except yaml.YAMLError as exc:
+            # PyYAML's own exception, the one violation that genuinely
+            # needs translating -- malformed YAML is reported by a foreign
+            # library that knows nothing of Reverie's conditions.
             mark = getattr(exc, "problem_mark", None)
             collector.add(
                 "load.invalid_yaml",

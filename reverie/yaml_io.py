@@ -41,40 +41,61 @@ _NAN_INF_VALUES = {
 }
 
 
-class ValueDomainError(Exception):
-    """A layer file contains something outside Reverie's closed value domain."""
-
-    def __init__(self, kind: str, line: int | None = None):
-        self.kind = kind
-        self.line = line
-        super().__init__(kind)
-
-
-class UnknownTagError(Exception):
-    """A layer file uses a YAML tag Reverie doesn't recognise."""
-
-    def __init__(self, tag: str, line: int | None = None):
-        self.tag = tag
-        self.line = line
-        super().__init__(tag)
-
-
-class EmptySecretAddressError(Exception):
-    """A `!secret` tag carries no usable address."""
-
-
 class SourceConditionError(Exception):
     """A source-file violation that maps straight onto a `load.*` condition.
 
-    The six conditions below all carry exactly `file` and `line`, and the
-    file is supplied by the caller that opened it, so one parameterised
-    exception covers them rather than six near-identical classes.
+    Every source-level rule this module enforces reports through this one
+    exception: the condition names itself, the position it was found at
+    rides along, and whatever else that condition declares (`kind`, `tag`)
+    arrives as a keyword. One parameterised exception covers them rather
+    than a class per condition, and the caller is left with nothing to
+    translate -- it supplies the `file`, which is the one field it knows
+    and this module doesn't, and forwards the rest.
+
+    A condition the registry declares with no fields at all is raised
+    `positioned=False` -- there being no `line` to carry, there is no
+    `file` either. Said at the raise site rather than inferred from a
+    missing line, so a rule that simply couldn't find its position still
+    reports the file it was found in.
     """
 
-    def __init__(self, condition: str, line: int | None = None):
+    def __init__(
+        self,
+        condition: str,
+        line: int | None = None,
+        *,
+        positioned: bool = True,
+        **fields,
+    ):
         self.condition = condition
         self.line = line
+        self.positioned = positioned
+        self.fields = fields
         super().__init__(condition)
+
+    def declared_fields(self, *, file: str) -> dict:
+        """Every field this condition declares, given the file the caller opened.
+
+        `file` and `line` are the position, and a positioned condition
+        declares both; the rest is what the raise site named. A condition
+        raised unpositioned declares neither, and `file` would be a field
+        its registry entry doesn't have.
+        """
+
+        if not self.positioned:
+            return dict(self.fields)
+        return {**self.fields, "file": file, "line": self.line}
+
+
+def _value_out_of_domain(kind: str, node: yaml.Node) -> SourceConditionError:
+    """`load.value_out_of_domain` at `node`, naming the closed-domain rule broken.
+
+    Three rules report it -- ADR 0008's forbidden types, NaN/infinity, and
+    a non-scalar `!vault` -- so the slug and the one-based line live here
+    rather than once per raise site.
+    """
+
+    return SourceConditionError("load.value_out_of_domain", node.start_mark.line + 1, kind=kind)
 
 
 _FACT_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -172,7 +193,7 @@ class _ClosedLoader(yaml.SafeLoader):
 
 def _construct_float(loader: yaml.SafeLoader, node: yaml.ScalarNode):
     if node.value in _NAN_INF_VALUES:
-        raise ValueDomainError("nan_or_infinity", node.start_mark.line + 1)
+        raise _value_out_of_domain("nan_or_infinity", node)
     return yaml.SafeLoader.construct_yaml_float(loader, node)
 
 
@@ -305,9 +326,9 @@ def _check_resolved_tag(tag: str, node: yaml.Node) -> None:
     if tag == _MERGE_TAG:
         raise SourceConditionError("load.forbidden_alias", node.start_mark.line + 1)
     if tag in _FORBIDDEN_TAG_KINDS:
-        raise ValueDomainError(_FORBIDDEN_TAG_KINDS[tag], node.start_mark.line + 1)
+        raise _value_out_of_domain(_FORBIDDEN_TAG_KINDS[tag], node)
     if tag not in _ALLOWED_TAGS:
-        raise UnknownTagError(tag, node.start_mark.line + 1)
+        raise SourceConditionError("load.unknown_tag", node.start_mark.line + 1, tag=tag)
 
 
 def _deferred_template_balanced(text: str) -> bool:
@@ -398,7 +419,7 @@ def _check_tags(loader: yaml.SafeLoader, node: yaml.Node, *, root_of: str | None
         # document) is rejected instead of silently accepted, since a
         # merge engine needs to see the values it merges (ADR 0006).
         if not isinstance(node, yaml.ScalarNode):
-            raise ValueDomainError("vault_not_scalar", node.start_mark.line + 1)
+            raise _value_out_of_domain("vault_not_scalar", node)
         return
 
     if node.tag == SECRET_TAG:
@@ -406,7 +427,11 @@ def _check_tags(loader: yaml.SafeLoader, node: yaml.Node, *, root_of: str | None
         # sense as "an address", and an empty one is unusable (the two
         # acceptance criteria this tag's ticket names).
         if not isinstance(node, yaml.ScalarNode) or not node.value.strip():
-            raise EmptySecretAddressError()
+            # The registry declares `load.empty_secret_address` with no
+            # fields at all, so the line this node sits at is deliberately
+            # not carried. Giving it one is a registry change, argued on
+            # its own.
+            raise SourceConditionError("load.empty_secret_address", positioned=False)
         return
 
     _check_resolved_tag(node.tag, node)
@@ -433,8 +458,8 @@ def _check_tags(loader: yaml.SafeLoader, node: yaml.Node, *, root_of: str | None
 def load_closed_domain(text: str, *, host_file: bool = False):
     """Parse YAML text, enforcing every source-level rule.
 
-    Raises ValueDomainError, UnknownTagError, EmptySecretAddressError,
-    SourceConditionError, or yaml.YAMLError (malformed YAML) on violation.
+    Raises `SourceConditionError` naming the condition violated, or
+    `yaml.YAMLError` -- PyYAML's own, for malformed YAML.
     """
 
     loader = _ClosedLoader(text)
