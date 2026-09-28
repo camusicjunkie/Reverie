@@ -202,7 +202,12 @@ def configure(source_arg: str | None) -> SourceConfig:
             entry_field.report(collector, "configure.malformed_chain_entry", entry=entry_field.value)
             continue
 
-        optional = bool(entry_field.field("optional").value)
+        # `bool(...)` used to stand in for the check, so `optional: "no"`
+        # read as True and turned a required layer optional -- the one
+        # condition here that meant the opposite of what it said.
+        optional_field = entry_field.field("optional")
+        _report_if_malformed(optional_field, bool, "configure.malformed_optional_flag", collector)
+        optional = bool(optional_field.shaped(bool))
         chain.append(ChainEntry(address=address, optional=optional))
         _validate_template(address, address_field, collector)
 
@@ -297,8 +302,12 @@ def configure(source_arg: str | None) -> SourceConfig:
         backend_field.report(
             collector, "configure.malformed_secret_backend", line=backend_field.line
         )
+    options_field = backend_field.field("options")
+    _report_if_malformed(
+        options_field, dict, "configure.malformed_secret_backend_options", collector
+    )
     secret_backend = (
-        SecretBackend(lookup=lookup, options=backend_field.field("options").shaped(dict) or {})
+        SecretBackend(lookup=lookup, options=options_field.shaped(dict) or {})
         if lookup is not None
         else None
     )
@@ -316,10 +325,19 @@ def configure(source_arg: str | None) -> SourceConfig:
             inventory_groups.append(GroupFact(fact=bare_fact))
             continue
         fact = element.field("fact").shaped(str)
-        if fact is not None:
-            inventory_groups.append(GroupFact(fact=fact, prefix=element.field("prefix").shaped(str)))
+        if fact is None:
+            element.report(collector, "configure.malformed_group_entry", line=element.line)
+            continue
 
-    ansible_host_fact = inventory_field.field("ansible_host").shaped(str)
+        # A discarded prefix is not a smaller fault than a discarded group:
+        # it emits every group the entry generates under a different name.
+        prefix_field = element.field("prefix")
+        _report_if_malformed(prefix_field, str, "configure.malformed_group_prefix", collector)
+        inventory_groups.append(GroupFact(fact=fact, prefix=prefix_field.shaped(str)))
+
+    ansible_host_field = inventory_field.field("ansible_host")
+    _report_if_malformed(ansible_host_field, str, "configure.malformed_ansible_host", collector)
+    ansible_host_fact = ansible_host_field.shaped(str)
 
     collector.raise_if_any()
 

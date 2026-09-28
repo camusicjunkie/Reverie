@@ -136,6 +136,26 @@
   phase: configure
   fields: [file, line]
   implemented: true
+- id: configure.malformed_group_entry
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_group_prefix
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_ansible_host
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_secret_backend_options
+  phase: configure
+  fields: [file, line]
+  implemented: true
+- id: configure.malformed_optional_flag
+  phase: configure
+  fields: [file, line]
+  implemented: true
 
 # --- load --------------------------------------------------------------
 
