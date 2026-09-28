@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from reverie import keypath
+from reverie import keypath, reverie_yml
 from reverie.errors import DiagnosticCollector
 
 PHASE = "configure"
@@ -30,42 +30,40 @@ _TUPLE_STRATEGIES = {"unique_tuple", "deep_tuple"}
 _MERGE_ENTRY_KEYS = {"strategy", "tuple_keys"}
 
 
-def _get_child_node(node: yaml.Node, key: str) -> yaml.Node | None:
-    if not isinstance(node, yaml.MappingNode):
-        return None
-    for key_node, value_node in node.value:
-        if isinstance(key_node, yaml.ScalarNode) and key_node.value == key:
-            return value_node
-    return None
-
-
-def _validate_template(text: str, line: int | None, file: str, collector: DiagnosticCollector) -> None:
+def _validate_template(text: str, field: reverie_yml.Field, collector: DiagnosticCollector) -> None:
     """Check every `{{ ... }}` block in `text` addresses `host.<identifier>` only.
 
     Position is the discriminator (CONTEXT.md): a chain/layout template's
     only legal reference is a literal top-level scalar on the host's own
     file, addressed as `host.<name>` -- no nesting, no other namespace.
+
+    `field` is the field the template was written in, and the three
+    conditions below declare a `line`: it comes from the field, which
+    already carries it.
     """
+
+    def report(condition: str) -> None:
+        field.report(collector, condition, line=field.line)
 
     stripped = _TEMPLATE_BLOCK.sub("", text)
     if "{{" in stripped or "}}" in stripped:
-        collector.add("configure.chain_template_illegal_expression", file=file, line=line)
+        report("configure.chain_template_illegal_expression")
         return
 
     for match in _TEMPLATE_BLOCK.finditer(text):
         inner = match.group(1).strip()
         if "." not in inner:
-            collector.add("configure.chain_template_illegal_expression", file=file, line=line)
+            report("configure.chain_template_illegal_expression")
             continue
         namespace, _, rest = inner.partition(".")
         if namespace != "host":
-            collector.add("configure.chain_template_unknown_namespace", file=file, line=line)
+            report("configure.chain_template_unknown_namespace")
             continue
         if "." in rest:
-            collector.add("configure.chain_template_nested_reference", file=file, line=line)
+            report("configure.chain_template_nested_reference")
             continue
         if not _IDENTIFIER.fullmatch(rest):
-            collector.add("configure.chain_template_illegal_expression", file=file, line=line)
+            report("configure.chain_template_illegal_expression")
 
 
 @dataclass(frozen=True)
@@ -131,60 +129,57 @@ def configure(source_arg: str | None) -> SourceConfig:
         collector.raise_if_any()
 
     root = Path(source_arg)
-    reverie_yml = root / "reverie.yml"
-    if not reverie_yml.is_file():
-        collector.add("configure.reverie_yml_not_found", file=str(reverie_yml))
+    reverie_yml_path = root / "reverie.yml"
+    if not reverie_yml_path.is_file():
+        collector.add("configure.reverie_yml_not_found", file=str(reverie_yml_path))
         collector.raise_if_any()
 
     try:
-        raw = yaml.safe_load(reverie_yml.read_text(encoding="utf-8")) or {}
+        document = reverie_yml.read(reverie_yml_path)
     except yaml.YAMLError as exc:
-        collector.add("configure.malformed_reverie_yml", file=str(reverie_yml), detail=str(exc))
+        collector.add("configure.malformed_reverie_yml", file=str(reverie_yml_path), detail=str(exc))
         collector.raise_if_any()
 
-    if not isinstance(raw, dict):
-        collector.add(
+    # A document with no content -- a blank file, or a bare `null` -- is an
+    # empty declaration, and every field below then reads as absent. Only a
+    # root that holds something and is not a mapping is malformed.
+    if document.value and not isinstance(document.value, dict):
+        document.report(
+            collector,
             "configure.malformed_reverie_yml",
-            file=str(reverie_yml),
             detail="expected a mapping at the document root",
         )
         collector.raise_if_any()
 
-    layout = raw.get("layout", "")
+    layout_field = document.field("layout")
+    # An undeclared `layout:` is the empty layout; `layout:` written with no
+    # value is a declaration of null, and null is not a layout.
+    layout = layout_field.value if layout_field.present else ""
     if not isinstance(layout, str) or layout.startswith("/") or layout.endswith("/"):
-        collector.add("configure.malformed_layout", file=str(reverie_yml), layout=layout)
-
-    root_node = yaml.compose(reverie_yml.read_text(encoding="utf-8"), Loader=yaml.SafeLoader)
-    layout_node = _get_child_node(root_node, "layout")
-    chain_node = _get_child_node(root_node, "chain")
+        layout_field.report(collector, "configure.malformed_layout", layout=layout)
 
     if isinstance(layout, str) and layout:
-        layout_line = layout_node.start_mark.line + 1 if layout_node is not None else None
-        _validate_template(layout, layout_line, str(reverie_yml), collector)
+        _validate_template(layout, layout_field, collector)
 
-    chain_raw = raw.get("chain", []) or []
-    chain_nodes = chain_node.value if isinstance(chain_node, yaml.SequenceNode) else []
     chain: list[ChainEntry] = []
-    for index, entry in enumerate(chain_raw):
-        entry_node = chain_nodes[index] if index < len(chain_nodes) else None
+    for entry_field in document.field("chain").elements():
+        entry = entry_field.value
         if isinstance(entry, str):
-            address_node = entry_node
+            address_field = entry_field
             chain.append(ChainEntry(address=entry))
-        elif isinstance(entry, dict) and "address" in entry and isinstance(entry["address"], str):
-            address_node = _get_child_node(entry_node, "address") if entry_node is not None else None
+        elif isinstance(entry, dict) and isinstance(entry.get("address"), str):
+            address_field = entry_field.field("address")
             chain.append(ChainEntry(address=entry["address"], optional=bool(entry.get("optional", False))))
         else:
-            collector.add("configure.malformed_chain_entry", file=str(reverie_yml), entry=entry)
+            entry_field.report(collector, "configure.malformed_chain_entry", entry=entry)
             continue
 
-        address = chain[-1].address
-        if isinstance(address, str):
-            line = address_node.start_mark.line + 1 if address_node is not None else None
-            _validate_template(address, line, str(reverie_yml), collector)
+        _validate_template(chain[-1].address, address_field, collector)
 
-    defaults = raw.get("defaults")
+    defaults_field = document.field("defaults")
+    defaults = defaults_field.value
     if defaults is not None and not isinstance(defaults, str):
-        collector.add("configure.malformed_defaults", file=str(reverie_yml), defaults=defaults)
+        defaults_field.report(collector, "configure.malformed_defaults", defaults=defaults)
         defaults = None
     elif isinstance(defaults, str) and not (root / defaults).parent.is_dir():
         # The declared floor's *directory* is a configure-phase concern: a
@@ -192,83 +187,81 @@ def configure(source_arg: str | None) -> SourceConfig:
         # that describes a tree it isn't rooted in. The floor file itself
         # missing from an existing directory stays `enumerate`'s
         # missing_layer_file, same as any other addressed-but-absent layer.
-        collector.add("configure.missing_defaults_directory", file=str(reverie_yml))
+        defaults_field.report(collector, "configure.missing_defaults_directory")
         defaults = None
 
-    merge_raw = raw.get("merge", {}) or {}
+    merge_field = document.field("merge")
     merge_policies: list[MergePolicy] = []
-    if isinstance(merge_raw, dict):
-        for pattern, entry in merge_raw.items():
-            tuple_keys = None
-            declares_tuple_keys = False
-            if isinstance(entry, str):
-                strategy = entry
-            elif isinstance(entry, dict):
-                for key in entry:
-                    if key not in _MERGE_ENTRY_KEYS:
-                        collector.add("configure.unknown_entry_key", file=str(reverie_yml), key=key)
+    for pattern, entry_field in merge_field.entries():
+        entry = entry_field.value
+        tuple_keys = None
+        declares_tuple_keys = False
+        if isinstance(entry, str):
+            strategy = entry
+        elif isinstance(entry, dict):
+            for key, _value_field in entry_field.entries():
+                if key not in _MERGE_ENTRY_KEYS:
+                    entry_field.report(collector, "configure.unknown_entry_key", key=key)
 
-                if not isinstance(entry.get("strategy"), str):
-                    collector.add("configure.missing_strategy", file=str(reverie_yml), key_path=pattern)
-                    continue
-
-                strategy = entry["strategy"]
-                declares_tuple_keys = "tuple_keys" in entry
-                raw_tuple_keys = entry.get("tuple_keys")
-                if isinstance(raw_tuple_keys, list) and all(isinstance(k, str) for k in raw_tuple_keys):
-                    tuple_keys = tuple(raw_tuple_keys)
-            else:
-                collector.add("configure.missing_strategy", file=str(reverie_yml), key_path=pattern)
+            strategy = entry_field.field("strategy").shaped(str)
+            if strategy is None:
+                entry_field.report(collector, "configure.missing_strategy", key_path=pattern)
                 continue
 
-            if strategy not in _STRATEGIES:
-                collector.add(
-                    "configure.unknown_strategy", file=str(reverie_yml), key_path=pattern, strategy=strategy
-                )
-                continue
+            tuple_keys_field = entry_field.field("tuple_keys")
+            declares_tuple_keys = tuple_keys_field.present
+            raw_tuple_keys = tuple_keys_field.shaped(list)
+            if raw_tuple_keys is not None and all(isinstance(key, str) for key in raw_tuple_keys):
+                tuple_keys = tuple(raw_tuple_keys)
+        else:
+            entry_field.report(collector, "configure.missing_strategy", key_path=pattern)
+            continue
 
-            if strategy in _TUPLE_STRATEGIES and tuple_keys is None:
-                collector.add("configure.missing_tuple_keys", file=str(reverie_yml), key_path=pattern)
-                continue
+        if strategy not in _STRATEGIES:
+            entry_field.report(
+                collector, "configure.unknown_strategy", key_path=pattern, strategy=strategy
+            )
+            continue
 
-            if strategy not in _TUPLE_STRATEGIES and declares_tuple_keys:
-                collector.add("configure.unexpected_tuple_keys", file=str(reverie_yml), key_path=pattern)
-                continue
+        if strategy in _TUPLE_STRATEGIES and tuple_keys is None:
+            entry_field.report(collector, "configure.missing_tuple_keys", key_path=pattern)
+            continue
 
-            merge_policies.append(MergePolicy(pattern=pattern, strategy=strategy, tuple_keys=tuple_keys))
+        if strategy not in _TUPLE_STRATEGIES and declares_tuple_keys:
+            entry_field.report(collector, "configure.unexpected_tuple_keys", key_path=pattern)
+            continue
+
+        merge_policies.append(MergePolicy(pattern=pattern, strategy=strategy, tuple_keys=tuple_keys))
 
     for first, _second in keypath.tied_patterns(policy.pattern for policy in merge_policies):
-        collector.add("configure.ambiguous_specificity", file=str(reverie_yml), key_path=first)
-
-    secrets_raw = raw.get("secrets", []) or []
-    secrets = [entry for entry in secrets_raw if isinstance(entry, str)] if isinstance(secrets_raw, list) else []
-
-    backend_raw = raw.get("secret_backend")
-    secret_backend: SecretBackend | None = None
-    if isinstance(backend_raw, dict) and isinstance(backend_raw.get("lookup"), str):
-        options = backend_raw.get("options", {}) or {}
-        secret_backend = SecretBackend(
-            lookup=backend_raw["lookup"], options=options if isinstance(options, dict) else {}
+        merge_field.field(first).report(
+            collector, "configure.ambiguous_specificity", key_path=first
         )
 
-    inventory_raw = raw.get("inventory", {}) or {}
-    inventory_groups: list[GroupFact] = []
-    ansible_host_fact: str | None = None
-    if isinstance(inventory_raw, dict):
-        groups_raw = inventory_raw.get("groups", []) or []
-        if isinstance(groups_raw, list):
-            for entry in groups_raw:
-                if isinstance(entry, str):
-                    inventory_groups.append(GroupFact(fact=entry))
-                elif isinstance(entry, dict) and isinstance(entry.get("fact"), str):
-                    prefix = entry.get("prefix")
-                    inventory_groups.append(
-                        GroupFact(fact=entry["fact"], prefix=prefix if isinstance(prefix, str) else None)
-                    )
+    secrets = [
+        element.value for element in document.field("secrets").elements() if isinstance(element.value, str)
+    ]
 
-        host_fact_raw = inventory_raw.get("ansible_host")
-        if isinstance(host_fact_raw, str):
-            ansible_host_fact = host_fact_raw
+    backend_field = document.field("secret_backend")
+    lookup = backend_field.field("lookup").shaped(str)
+    secret_backend = (
+        SecretBackend(lookup=lookup, options=backend_field.field("options").shaped(dict) or {})
+        if lookup is not None
+        else None
+    )
+
+    inventory_field = document.field("inventory")
+    inventory_groups: list[GroupFact] = []
+    for element in inventory_field.field("groups").elements():
+        entry = element.value
+        if isinstance(entry, str):
+            inventory_groups.append(GroupFact(fact=entry))
+        elif isinstance(entry, dict) and isinstance(entry.get("fact"), str):
+            inventory_groups.append(
+                GroupFact(fact=entry["fact"], prefix=element.field("prefix").shaped(str))
+            )
+
+    ansible_host_fact = inventory_field.field("ansible_host").shaped(str)
 
     collector.raise_if_any()
 
