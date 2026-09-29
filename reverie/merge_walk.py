@@ -37,6 +37,14 @@ it came from. Turning that into a merged value is `resolve`'s
 (`resolve.merged_value`), into a diagnostic `validate`'s, into a
 provenance record `rsop`'s.
 
+This is not the only traversal of a host's layer data, and deliberately
+so. `reverie.path_scan` walks the same layers to answer a different
+question -- "does any walked layer touch this key path at all", winner or
+not -- which four of `validate`'s verdicts rest on and no binding decision
+can answer, since it is broader than the merges a host performs (issue
+#61). The one rule the two share, the `deep_tuple` fold, is derived in
+`merge_plan.BindingDecision.folds_elements_as_maps` and read by both.
+
 A `Merge` is also a tree node, not just a stream element: `children` are
 the merges inside a map-strategy merge and `elements` the elements of a
 list-strategy one, so a consumer that assembles a value bottom-up can
@@ -167,8 +175,8 @@ class HostMerges:
 
     What crosses the seam between `load` and the three consumers of a
     host's merges (issue #60). `merges` is the walk; `host` is what it was
-    walked over, which `validate` still needs for the raw per-layer path
-    scan its remaining checks read (issue #61).
+    walked over, which `validate` still needs for the **path scan** its
+    per-layer checks read (`reverie.path_scan`, issue #61).
 
     `name` and `layers_walked` are stated here because `resolve` needs
     exactly those two facts about the host and nothing else -- so it takes
@@ -230,7 +238,7 @@ def _list_elements(
     """
 
     tuple_keys = decision.policy.tuple_keys if decision.policy else None
-    folds = list_merge.merges_elements_as_maps(decision.strategy)
+    folds = decision.folds_elements_as_maps
     groups = list_merge.element_groups_by_layer(
         [contribution.value for contribution in effective], decision.strategy, tuple_keys
     )

@@ -56,6 +56,21 @@ class BindingDecision:
     # (including a mismatched `deep`) falls back to `first`.
     children_ambient: str
 
+    @property
+    def folds_elements_as_maps(self) -> bool:
+        """Whether this merge folds its matched list elements as maps, at
+        the list's own key path (CONTEXT.md "Element group").
+
+        The one place the fold rule is derived. Both traversals of a
+        host's layer data read it here -- `merge_walk` to recurse into a
+        fold's interior, the **path scan** to give the keys inside those
+        elements the key paths `resolve` will merge them at -- so the
+        divergence issues #47 and #48 recorded cannot come back through
+        a second copy of the rule (issue #61).
+        """
+
+        return self.applied and list_merge.merges_elements_as_maps(self.strategy)
+
 
 def effective_contributions(
     contributions: Sequence[_Contribution],

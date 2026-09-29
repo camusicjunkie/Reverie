@@ -32,8 +32,12 @@ precedence between the conditions it raises is stated there, beside the
 evidence each one reads.
 
 The remaining checks -- removals, in-layer duplicates, plaintext secrets
--- are per-layer rather than per-merge: they read raw key-path text in
-every walked layer, winner or not, so they keep `_walk` below.
+-- are per-layer rather than per-merge: they ask whether any walked layer
+touches a key path at all, winner or not. That is the **path scan**
+(`reverie.path_scan`, issue #61), the second named traversal of a host's
+layer data, and it is deliberately broader than the walk. This module
+keeps no traversal of its own: it scans each host once and judges the
+entries, exactly as it judges the merges.
 """
 
 from __future__ import annotations
@@ -41,10 +45,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterator
 
-from reverie import keypath, list_merge, merge_plan, merge_walk
+from reverie import keypath, list_merge, merge_plan, merge_walk, path_scan
 from reverie.errors import DiagnosticCollector
 from reverie.phases.configure import MergePolicy
-from reverie.phases.load import LoadedHost
 from reverie.yaml_io import Remove, Secret, Vault
 
 PHASE = "validate"
@@ -52,83 +55,48 @@ PHASE = "validate"
 _MAP_STRATEGIES = merge_plan.MAP_STRATEGIES
 
 
-def _folds_elements_as_maps(merge_policies: list[MergePolicy], key_path: str) -> bool:
-    """Whether a list at `key_path` is declared under a strategy that merges
-    its matched elements as maps -- see `list_merge.merges_elements_as_maps`."""
-
-    policy = keypath.winner(merge_policies, key_path)
-    return policy is not None and list_merge.merges_elements_as_maps(policy.strategy)
-
-
-def _walk(data: dict, merge_policies: list[MergePolicy], prefix: str = "") -> list[tuple[str, object]]:
-    """Every (key_path, value) pair in one layer's `data`, at every depth.
-
-    Map keys, plus the keys of the map elements of a `deep_tuple`-declared
-    list -- at the list's own key path, since that is where `resolve` folds
-    those elements together (issue #47). A `!remove` element is not
-    descended into: it contributes a match, not data, and `resolve` never
-    merges its interior.
-
-    This is raw per-layer key-path text, deliberately broader than the
-    binding decisions the merge walk computes: it answers "does any
-    walked layer touch this path at all", so a policy under a shadowed
-    ancestor still counts as matching something and reports as a strategy
-    that never applies rather than as a pattern matching nothing. One layer
-    alone has no cross-layer element matching either, so the paths inside
-    its elements pool per key path rather than per element -- the checks
-    over them are correspondingly path-keyed, which errs towards silence.
-    """
-
-    entries: list[tuple[str, object]] = []
-    for key, value in data.items():
-        path = f"{prefix}/{key}" if prefix else key
-        entries.append((path, value))
-        if isinstance(value, dict):
-            entries.extend(_walk(value, merge_policies, path))
-        elif isinstance(value, list) and _folds_elements_as_maps(merge_policies, path):
-            for element in value:
-                if isinstance(element, dict):
-                    entries.extend(_walk(element, merge_policies, path))
-    return entries
-
-
-def _check_removals(host: LoadedHost, collector: DiagnosticCollector, merge_policies: list[MergePolicy]) -> None:
+def _check_removals(
+    entries: tuple[path_scan.Entry, ...],
+    collector: DiagnosticCollector,
+    merge_policies: list[MergePolicy],
+) -> None:
     """A `!remove` reaches downward only: it must match something a
-    strictly more general (already-walked) layer defined -- a map key by
+    strictly more general (already-scanned) layer defined -- a map key by
     identity, a list element by whichever equality the path's declared
     list strategy uses."""
 
     seen_paths: set[str] = set()
     seen_list_elements: dict[str, list[object]] = {}
 
-    for _layer, layer_data in host.layers:
-        for path, value in _walk(layer_data, merge_policies):
-            if isinstance(value, Remove):
-                if path not in seen_paths:
+    for entry in entries:
+        path, value = entry.key_path, entry.value
+
+        if isinstance(value, Remove):
+            if path not in seen_paths:
+                collector.add("validate.remove_matches_nothing")
+        else:
+            seen_paths.add(path)
+
+        if isinstance(value, list):
+            policy = keypath.winner(merge_policies, path)
+            strategy = policy.strategy if policy else None
+            tuple_keys = policy.tuple_keys if policy else None
+            prior = seen_list_elements.get(path, [])
+
+            for element in value:
+                if not isinstance(element, Remove):
+                    continue
+                if strategy not in list_merge.LIST_STRATEGIES or not any(
+                    list_merge.elements_equal(element.value, existing, strategy, tuple_keys)
+                    for existing in prior
+                ):
                     collector.add("validate.remove_matches_nothing")
-            else:
-                seen_paths.add(path)
 
-            if isinstance(value, list):
-                policy = keypath.winner(merge_policies, path)
-                strategy = policy.strategy if policy else None
-                tuple_keys = policy.tuple_keys if policy else None
-                prior = seen_list_elements.get(path, [])
-
-                for element in value:
-                    if not isinstance(element, Remove):
-                        continue
-                    if strategy not in list_merge.LIST_STRATEGIES or not any(
-                        list_merge.elements_equal(element.value, existing, strategy, tuple_keys)
-                        for existing in prior
-                    ):
-                        collector.add("validate.remove_matches_nothing")
-
-                seen_list_elements[path] = prior + [e for e in value if not isinstance(e, Remove)]
+            seen_list_elements[path] = prior + [e for e in value if not isinstance(e, Remove)]
 
 
 def _check_duplicates_in_layer(
-    host: LoadedHost,
+    entries: tuple[path_scan.Entry, ...],
     collector: DiagnosticCollector,
     merge_policies: list[MergePolicy],
     defaults_address: str | None,
@@ -141,30 +109,28 @@ def _check_duplicates_in_layer(
     separately addressable finding from the same fault in a chain layer.
     """
 
-    for layer, layer_data in host.layers:
+    for entry in entries:
+        if not isinstance(entry.value, list):
+            continue
+        policy = keypath.winner(merge_policies, entry.key_path)
+        if policy is None or policy.strategy not in list_merge.COMPARING_STRATEGIES:
+            continue
         condition = (
             "validate.duplicate_floor_key"
-            if defaults_address is not None and layer.address == defaults_address
+            if defaults_address is not None and entry.layer.address == defaults_address
             else "validate.duplicate_in_layer"
         )
-        for path, value in _walk(layer_data, merge_policies):
-            if not isinstance(value, list):
-                continue
-            policy = keypath.winner(merge_policies, path)
-            if policy is None or policy.strategy not in list_merge.COMPARING_STRATEGIES:
-                continue
-            elements = [e for e in value if not isinstance(e, Remove)]
-            for i, a in enumerate(elements):
-                if any(list_merge.elements_equal(a, b, policy.strategy, policy.tuple_keys) for b in elements[i + 1 :]):
-                    collector.add(condition, file=str(layer.path), line=None)
-                    break  # one report per key path is enough; keep scanning the layer's other paths
+        elements = [e for e in entry.value if not isinstance(e, Remove)]
+        for i, a in enumerate(elements):
+            if any(list_merge.elements_equal(a, b, policy.strategy, policy.tuple_keys) for b in elements[i + 1 :]):
+                collector.add(condition, file=str(entry.layer.path), line=None)
+                break  # one report per key path is enough; keep scanning the layer's other paths
 
 
 def _check_secrets(
-    host: LoadedHost,
+    entries: tuple[path_scan.Entry, ...],
     collector: DiagnosticCollector,
     secrets: list[str],
-    merge_policies: list[MergePolicy],
 ) -> None:
     """A plaintext value at a declared secret key path, in any walked layer.
 
@@ -176,12 +142,11 @@ def _check_secrets(
     if not secrets:
         return
 
-    for layer, layer_data in host.layers:
-        for path, value in _walk(layer_data, merge_policies):
-            if isinstance(value, (dict, list, Remove)):
-                continue
-            if not isinstance(value, (Vault, Secret)) and any(keypath.matches(pattern, path) for pattern in secrets):
-                collector.add("validate.secret_is_plaintext", layer=str(layer.path))
+    for entry in entries:
+        if isinstance(entry.value, (dict, list, Remove, Vault, Secret)):
+            continue
+        if any(keypath.matches(pattern, entry.key_path) for pattern in secrets):
+            collector.add("validate.secret_is_plaintext", layer=str(entry.layer.path))
 
 
 def _tuple_keys_missing(layer_lists: list[list], tuple_keys: tuple[str, ...] | None) -> bool:
@@ -207,12 +172,13 @@ class PolicyObservation:
 
     Every policy-scoped verdict rests on five observations, and they are
     gathered here rather than in five estate-wide sets whose intersection a
-    reader has to compute by hand. Evidence arrives from two passes and
-    only through the `saw_*` methods below: `saw_merge` folds in the shared
-    merge walk's decisions as they stream past, and `saw_path_match` /
-    `saw_vault_comparison` the findings of the raw per-layer path scan,
-    which is deliberately broader than the merges the walk performs (see
-    `_walk`).
+    reader has to compute by hand. Evidence arrives from the two
+    traversals and only through the `saw_*` methods below: `saw_merge`
+    folds in the shared merge walk's decisions as they stream past, and
+    `saw_path_match` /
+    `saw_vault_comparison` the findings of the path scan
+    (`reverie.path_scan`), which is deliberately broader than the merges
+    the walk performs.
     """
 
     policy: MergePolicy
@@ -321,27 +287,28 @@ def validate(
 
     Takes the walks rather than the hosts (issue #60), but keeps
     `merge_policies`: a verdict is owed for every *declared* policy,
-    including the ones no merge ever bound, and the per-layer path scan
-    reads them too. Returns nothing -- this phase is a checkpoint, and
-    handing back the list it was given would claim a transform it never
-    performs.
+    including the ones no merge ever bound, and the path scan reads them
+    too. Returns nothing -- this phase is a checkpoint, and handing back
+    the list it was given would claim a transform it never performs.
     """
 
     collector = DiagnosticCollector(PHASE)
     secrets = secrets or []
 
-    for walked in host_merges:
-        _check_removals(walked.host, collector, merge_policies)
-        _check_duplicates_in_layer(walked.host, collector, merge_policies, defaults_address)
-        _check_secrets(walked.host, collector, secrets, merge_policies)
+    # Each host is scanned once and walked once, and every verdict below
+    # reads one of those two (issue #61).
+    scanned = [path_scan.scan(walked.host, merge_policies) for walked in host_merges]
+
+    for entries in scanned:
+        _check_removals(entries, collector, merge_policies)
+        _check_duplicates_in_layer(entries, collector, merge_policies, defaults_address)
+        _check_secrets(entries, collector, secrets)
 
     observations = {policy.pattern: PolicyObservation(policy) for policy in merge_policies}
 
-    values_by_path: dict[str, list[object]] = {}
-    for walked in host_merges:
-        for _layer, layer_data in walked.host.layers:
-            for path, value in _walk(layer_data, merge_policies):
-                values_by_path.setdefault(path, []).append(value)
+    values_by_path = path_scan.values_by_key_path(
+        entry for entries in scanned for entry in entries
+    )
 
     for path, values in values_by_path.items():
         for policy in merge_policies:
