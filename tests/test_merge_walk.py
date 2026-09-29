@@ -17,13 +17,13 @@ import pytest
 from reverie import merge_plan, merge_walk
 from reverie.phases.configure import MergePolicy
 from reverie.yaml_io import Remove
-from tests.conftest import loaded_host as host
+from tests.conftest import host_merges
 
 
 def walk(*layers: dict, policies: list[MergePolicy] | None = None) -> list[merge_walk.Merge]:
     """Every merge the host performs, flattened in the order it performs them."""
 
-    return list(merge_walk.merges(merge_walk.walk(host(*layers), policies or [])))
+    return list(merge_walk.merges(host_merges(*layers, policies=policies).merges))
 
 
 def paths(merges: list[merge_walk.Merge]) -> list[str]:

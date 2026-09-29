@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from reverie import merge_walk
 from reverie.errors import Diagnostic, DiagnosticCollector, PhaseFailed
 from reverie.phases import configure as configure_phase
 from reverie.phases import emit as emit_phase
@@ -37,10 +38,14 @@ def compile_source(source_arg: str | None, output: str | None = None) -> Compile
         config = configure_phase.configure(source_arg)
         enumerated = enumerate_phase.enumerate_hosts(config)
         loaded = load_phase.load_layers(enumerated.hosts, config.secret_backend)
-        validated = validate_phase.validate(
-            loaded, config.merge_policies, config.secrets, config.defaults
+        # Every host's merge walk, produced once here and read by both the
+        # phases that consume merges (issue #60) -- and by `rsop`, which
+        # runs this same prologue.
+        host_merges = merge_walk.walk_all(loaded, config.merge_policies)
+        validate_phase.validate(
+            host_merges, config.merge_policies, config.secrets, config.defaults
         )
-        resolved = resolve_phase.resolve(validated, config.merge_policies)
+        resolved = resolve_phase.resolve(host_merges)
         emit_phase.emit(config, resolved, enumerated.hosts, enumerated.groups)
     except PhaseFailed as exc:
         return CompileResult(diagnostics=exc.diagnostics, warnings=[])

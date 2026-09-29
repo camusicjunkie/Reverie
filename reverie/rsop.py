@@ -21,9 +21,12 @@ declared strategy/pattern, or the ambient one it inherited) and its
 
 Which merges those are, and what each binds to, is `reverie.merge_walk`'s
 (issue #57): this module consumes the same walk `resolve` executes and
-`validate` judges, and keeps no traversal of its own. A record's value is
+`validate` judges, and keeps no traversal of its own. Literally the same
+walk, since issue #60 -- one `merge_walk.HostMerges` per host, produced
+once after `load` and handed to all three. A record's value is
 `resolve.merged_value` of the merge that produced it, so an RSOP value is
-the artifact's value by construction rather than by agreement. What is left
+the artifact's value by construction rather than by agreement: the same
+`Merge` object, read twice. What is left
 here, and all that is left, is the per-layer contributor bookkeeping and
 the writing of an address. Per CONTEXT.md's `Contributor` entry, a layer's
 contribution at a key path resolves to exactly one of:
@@ -54,8 +57,7 @@ from reverie.phases import enumerate as enumerate_phase
 from reverie.phases import load as load_phase
 from reverie.phases import resolve as resolve_phase
 from reverie.phases import validate as validate_phase
-from reverie.phases.configure import MergePolicy, SourceConfig
-from reverie.phases.load import LoadedHost
+from reverie.phases.configure import SourceConfig
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
 from reverie.yaml_io import Remove, Vault, dump_flow_scalar, dump_pinned
 
@@ -220,18 +222,24 @@ def _record(merge: merge_walk.Merge) -> dict:
     return record
 
 
-def compute_rsop(host: LoadedHost, merge_policies: list[MergePolicy]) -> dict[str, dict]:
-    """The full `rsop:` map for one loaded (and already-validated) host.
+def compute_rsop(host_merges: merge_walk.HostMerges) -> dict[str, dict]:
+    """The full `rsop:` map for one host's (already-validated) merges.
 
     One record per merge the host performs, which is every merge
     `merge_walk` yields and no others -- so coverage is the walk's
     (fold interiors included, issue #48) rather than a traversal of this
     module's own, and a key path cannot be merged without being reported.
+
+    The walk is the one `compile` would resolve from, handed over rather
+    than started here (issue #60). That is what makes a record's `value:`
+    the artifact's value *by construction*: `resolve.merged_value` is
+    applied to the same `Merge`, not to the matching merge of a second
+    walk.
     """
 
     return {
         render_address(merge.address): _record(merge)
-        for merge in merge_walk.merges(merge_walk.walk(host, merge_policies))
+        for merge in merge_walk.merges(host_merges.merges)
     }
 
 
@@ -256,18 +264,19 @@ def rsop_source(source_arg: str | None, host: str | None, output: str | None) ->
         host_collector.raise_if_any()
 
         loaded = load_phase.load_layers(enumerated.hosts, config.secret_backend)
-        validated = validate_phase.validate(
-            loaded, config.merge_policies, config.secrets, config.defaults
+        host_merges = merge_walk.walk_all(loaded, config.merge_policies)
+        validate_phase.validate(
+            host_merges, config.merge_policies, config.secrets, config.defaults
         )
 
-        target = next(h for h in validated if h.name == host)
+        target = next(walked for walked in host_merges if walked.name == host)
         document = {
             "rsop_meta": {
                 "compiler_version": COMPILER_VERSION,
                 "spec_version": SPEC_VERSION,
                 "host": host,
             },
-            "rsop": compute_rsop(target, config.merge_policies),
+            "rsop": compute_rsop(target),
         }
     except PhaseFailed as exc:
         return RsopResult(diagnostics=exc.diagnostics, text=None)

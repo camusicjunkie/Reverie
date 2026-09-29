@@ -11,7 +11,7 @@ from reverie import merge_walk, rsop
 from reverie.phases import resolve
 from reverie.phases.configure import MergePolicy
 from reverie.yaml_io import Remove
-from tests.conftest import assert_diagnostic, loaded_host, run_reverie
+from tests.conftest import assert_diagnostic, host_merges, run_reverie
 
 
 class _TagAwareLoader(yaml.SafeLoader):
@@ -258,10 +258,9 @@ def test_rsop_works_without_compile_having_run(fixture_dir):
 
 
 def _walk_and_records(*layers: dict, policies=None):
-    host = loaded_host(*layers)
-    policies = policies or []
-    merges = list(merge_walk.merges(merge_walk.walk(host, policies)))
-    return merges, rsop.compute_rsop(host, policies)
+    walked = host_merges(*layers, policies=policies)
+    merges = list(merge_walk.merges(walked.merges))
+    return merges, rsop.compute_rsop(walked)
 
 
 def test_every_merge_the_walk_yields_gets_exactly_one_record_and_no_others():
@@ -301,3 +300,43 @@ def test_a_records_value_is_the_value_resolve_would_emit_for_that_merge():
             assert "value" not in record
         else:
             assert record["value"] == value
+
+
+# Issue #60: the walk is produced once and passed to its consumers, so
+# `resolve` and this module read the same `Merge` objects rather than two
+# walks that agree. The interfaces carry that structurally -- neither
+# `resolve.resolve` nor `compute_rsop` takes a policy list any more, so
+# neither has anything to walk with. What this case pins is the
+# observable half: one carrier in, artifact data and records out, agreeing
+# at every address, fold interiors included.
+def test_one_walk_feeds_both_the_artifact_and_the_records():
+    walked = host_merges(
+        {"local_groups": {"groups": [{"name": "admins", "members": ["alice"]}]}},
+        {"local_groups": {"groups": [{"name": "admins", "members": ["bob"]}]}},
+        policies=[
+            MergePolicy(pattern="local_groups", strategy="deep"),
+            MergePolicy(pattern="local_groups/groups", strategy="deep_tuple", tuple_keys=("name",)),
+            MergePolicy(pattern="local_groups/groups/members", strategy="append"),
+        ],
+    )
+
+    resolved = resolve.resolve([walked])
+    records = rsop.compute_rsop(walked)
+
+    assert len(resolved) == 1
+    assert resolved[0].name == walked.name
+    assert resolved[0].data == {
+        "local_groups": {"groups": [{"name": "admins", "members": ["bob", "alice"]}]}
+    }
+
+    # The fold's interior is addressed by tuple key (ADR 0010), and its
+    # record carries the value that went into the artifact.
+    interior = records["local_groups/groups[name=admins]/members"]
+    assert interior["value"] == ["bob", "alice"]
+    assert interior["value"] == resolved[0].data["local_groups"]["groups"][0]["members"]
+
+    # Every record is one of this walk's merges, and every merge of this
+    # walk is one record -- the same tuple both consumers read.
+    assert set(records) == {
+        rsop.render_address(merge.address) for merge in merge_walk.merges(walked.merges)
+    }

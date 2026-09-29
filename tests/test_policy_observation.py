@@ -13,7 +13,7 @@ from __future__ import annotations
 from reverie import merge_walk
 from reverie.phases import validate
 from reverie.phases.configure import MergePolicy
-from tests.conftest import loaded_host
+from tests.conftest import host_merges
 
 
 def observed(policy: MergePolicy, *layers: dict, matched: bool = True) -> validate.PolicyObservation:
@@ -27,7 +27,7 @@ def observed(policy: MergePolicy, *layers: dict, matched: bool = True) -> valida
     observation = validate.PolicyObservation(policy=policy)
     if matched:
         observation.saw_path_match()
-    for merge in merge_walk.merges(merge_walk.walk(loaded_host(*layers), [policy])):
+    for merge in merge_walk.merges(host_merges(*layers, policies=[policy]).merges):
         if merge.decision.policy is policy:
             observation.saw_merge(merge)
     return observation

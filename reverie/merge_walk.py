@@ -21,6 +21,15 @@ rules live in one place and a divergence of the kind issues #47 and #48
 recorded has nowhere left to arise: a merge a consumer reports is a merge
 the walk yielded, and a merge the walk yields is one `resolve` executes.
 
+And they consume the *same* walk, not one each (issue #60). `walk_all`
+produces one `HostMerges` per host immediately after `load`, and the three
+consumers read their merges from it, so a host's merges are a thing the
+compile holds rather than a thing each consumer works out again. What that
+buys is a claim `rsop` already makes: a record's value is
+`resolve.merged_value` of the merge that produced it, which is the
+artifact's value *by construction* -- one `Merge`, read twice -- where
+three separate walks could only ever agree.
+
 The walk computes no values and raises nothing. A `Merge` carries what the
 merge *is*: the key path that bound it, the RSOP address it is filed
 under, the binding decision, and every contribution paired with the layer
@@ -150,6 +159,47 @@ def walk(host: LoadedHost, merge_policies: list[MergePolicy]) -> tuple[Merge, ..
 
     layers = tuple(Contribution(layer, data) for layer, data in host.layers)
     return _children("", (), layers, "first", merge_policies)
+
+
+@dataclass(frozen=True)
+class HostMerges:
+    """One host's merge walk, produced once and passed to its consumers.
+
+    What crosses the seam between `load` and the three consumers of a
+    host's merges (issue #60). `merges` is the walk; `host` is what it was
+    walked over, which `validate` still needs for the raw per-layer path
+    scan its remaining checks read (issue #61).
+
+    `name` and `layers_walked` are stated here because `resolve` needs
+    exactly those two facts about the host and nothing else -- so it takes
+    this and never sees a `LoadedHost` at all.
+    """
+
+    host: LoadedHost
+    merges: tuple[Merge, ...]
+
+    @property
+    def name(self) -> str:
+        return self.host.name
+
+    @property
+    def layers_walked(self) -> list[str]:
+        """The layer addresses this host walked, most general to most
+        specific -- straight into the artifact's `reverie_meta`."""
+
+        return [layer.address for layer, _data in self.host.layers]
+
+
+def walk_all(hosts: Iterable[LoadedHost], merge_policies: list[MergePolicy]) -> list[HostMerges]:
+    """Every host's merge walk, each produced once.
+
+    The one place a walk is started. Every consumer reads from what this
+    returns rather than calling `walk` itself, so the three of them cannot
+    walk with different policies, and `rsop`'s value and the artifact's
+    value at one key path are the same `Merge` rather than two that agree.
+    """
+
+    return [HostMerges(host=host, merges=walk(host, merge_policies)) for host in hosts]
 
 
 def merges(nodes: Iterable[Merge]) -> Iterator[Merge]:

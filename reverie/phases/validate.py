@@ -24,7 +24,9 @@ could go wrong with merge data is caught here first.
 The merge-policy checks judge the binding decisions of the shared merge
 walk (`reverie.merge_walk`, issue #53) rather than a traversal of this
 module's own: whichever merges a host performs are exactly the merges
-judged here, structurally rather than by promise. What one policy was
+judged here, structurally rather than by promise. The walk arrives already
+produced (issue #60), so the merges judged here are the same objects
+`resolve` turns into values -- not a second walk over the same host. What one policy was
 seen to do across the estate is one `PolicyObservation`, and the
 precedence between the conditions it raises is stated there, beside the
 evidence each one reads.
@@ -310,24 +312,34 @@ class PolicyObservation:
 
 
 def validate(
-    loaded_hosts: list[LoadedHost],
+    host_merges: list[merge_walk.HostMerges],
     merge_policies: list[MergePolicy],
     secrets: list[str] | None = None,
     defaults_address: str | None = None,
-) -> list[LoadedHost]:
+) -> None:
+    """Judge every host's merges, and raise if anything is wrong.
+
+    Takes the walks rather than the hosts (issue #60), but keeps
+    `merge_policies`: a verdict is owed for every *declared* policy,
+    including the ones no merge ever bound, and the per-layer path scan
+    reads them too. Returns nothing -- this phase is a checkpoint, and
+    handing back the list it was given would claim a transform it never
+    performs.
+    """
+
     collector = DiagnosticCollector(PHASE)
     secrets = secrets or []
 
-    for host in loaded_hosts:
-        _check_removals(host, collector, merge_policies)
-        _check_duplicates_in_layer(host, collector, merge_policies, defaults_address)
-        _check_secrets(host, collector, secrets, merge_policies)
+    for walked in host_merges:
+        _check_removals(walked.host, collector, merge_policies)
+        _check_duplicates_in_layer(walked.host, collector, merge_policies, defaults_address)
+        _check_secrets(walked.host, collector, secrets, merge_policies)
 
     observations = {policy.pattern: PolicyObservation(policy) for policy in merge_policies}
 
     values_by_path: dict[str, list[object]] = {}
-    for host in loaded_hosts:
-        for _layer, layer_data in host.layers:
+    for walked in host_merges:
+        for _layer, layer_data in walked.host.layers:
             for path, value in _walk(layer_data, merge_policies):
                 values_by_path.setdefault(path, []).append(value)
 
@@ -347,16 +359,14 @@ def validate(
                 if list_merge.has_vault_comparison(elements, policy.strategy, policy.tuple_keys):
                     observations[policy.pattern].saw_vault_comparison()
 
-    for host in loaded_hosts:
-        top_level = merge_walk.walk(host, merge_policies)
-
+    for walked in host_merges:
         # A host whose every top-level key resolved away (or that never had
         # one) emits an artifact with an empty `reverie:` -- inert, and
         # almost always a mis-declared chain rather than an intent.
-        if all(merge.decision.shape == merge_plan.ABSENT for merge in top_level):
-            collector.add("validate.host_has_no_keys", host=host.name)
+        if all(merge.decision.shape == merge_plan.ABSENT for merge in walked.merges):
+            collector.add("validate.host_has_no_keys", host=walked.name)
 
-        for merge in merge_walk.merges(top_level):
+        for merge in merge_walk.merges(walked.merges):
             policy = merge.decision.policy
             if policy is not None:
                 observations[policy.pattern].saw_merge(merge)
@@ -370,4 +380,3 @@ def validate(
             collector.add(condition, **fields)
 
     collector.raise_if_any()
-    return loaded_hosts

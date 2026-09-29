@@ -6,9 +6,9 @@ with merge data was already caught in `validate`.
 Which merges a host performs, and in what order, is `reverie.merge_walk`'s
 (issue #53): the most specific *declared* policy for a key path wins
 outright, and where nothing is declared the key path inherits the ambient
-strategy its parent map is being merged under. This phase is the walk's
-first consumer, and it does one thing with it -- turn each merge into a
-value, bottom-up:
+strategy its parent map is being merged under. The walk is handed to this
+phase already produced (issue #60), and it does one thing with it -- turn
+each merge into a value, bottom-up:
 
 - nothing, where every contribution was `!remove`d away;
 - a map, from the merges inside it;
@@ -28,8 +28,6 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from reverie import merge_walk
-from reverie.phases.configure import MergePolicy
-from reverie.phases.load import LoadedHost
 
 PHASE = "resolve"
 
@@ -92,10 +90,20 @@ def list_value(elements: Sequence[merge_walk.Element]) -> list[Any]:
     ]
 
 
-def resolve(loaded_hosts: list[LoadedHost], merge_policies: list[MergePolicy]) -> list[ResolvedHost]:
-    resolved: list[ResolvedHost] = []
-    for host in loaded_hosts:
-        data = merged_map(merge_walk.walk(host, merge_policies))
-        layers_walked = [layer.address for layer, _ in host.layers]
-        resolved.append(ResolvedHost(name=host.name, data=data, layers_walked=layers_walked))
-    return resolved
+def resolve(host_merges: list[merge_walk.HostMerges]) -> list[ResolvedHost]:
+    """Each host's merges turned into its resolved data.
+
+    Takes the walks rather than the hosts and the policies (issue #60):
+    which merges a host performs is settled before this phase runs, so
+    there is nothing left here to bind, and no policy list to bind it
+    with.
+    """
+
+    return [
+        ResolvedHost(
+            name=walked.name,
+            data=merged_map(walked.merges),
+            layers_walked=walked.layers_walked,
+        )
+        for walked in host_merges
+    ]

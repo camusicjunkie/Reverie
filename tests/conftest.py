@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from reverie import merge_walk
+from reverie.phases.configure import MergePolicy
 from reverie.phases.enumerate import LayerRef
 from reverie.phases.load import LoadedHost
 from reverie.spec_registry import (
@@ -43,6 +45,20 @@ def loaded_host(*layers: dict, name: str = "h1") -> LoadedHost:
             for index, data in enumerate(layers)
         ],
     )
+
+
+def host_merges(
+    *layers: dict, policies: list[MergePolicy] | None = None, name: str = "h1"
+) -> merge_walk.HostMerges:
+    """The merge walk over literal `layers`, as the compile would produce it.
+
+    What `validate`, `resolve` and `rsop` each take since issue #60. The
+    sibling of `loaded_host` above, and for the same reason: the unit
+    tests over the shared primitives all need the same stand-in, so they
+    build it one way rather than each assembling a host and walking it.
+    """
+
+    return merge_walk.walk_all([loaded_host(*layers, name=name)], policies or [])[0]
 
 
 def assert_diagnostic(diagnostics: list[dict], id: str, **expected_fields) -> dict:
