@@ -61,6 +61,22 @@ class Field:
             return Field(value=None, file=self.file, present=False)
         return Field(value=self.value[name], file=self.file, node=self._child_node(name))
 
+    def key_line(self, name: str) -> int | None:
+        """The 1-based line the named key itself is written on, or None.
+
+        `field(name).line` is the line the key's *value* starts on, which
+        for a block mapping or sequence is the line below. A diagnostic
+        about the key -- a declaration the schema does not have -- has to
+        point at the key, so it reads its position here rather than off
+        the value it introduces.
+        """
+
+        if isinstance(self.node, yaml.MappingNode):
+            for key_node, _value_node in self.node.value:
+                if isinstance(key_node, yaml.ScalarNode) and key_node.value == name:
+                    return key_node.start_mark.line + 1
+        return None
+
     def _child_node(self, name: str) -> yaml.Node | None:
         if isinstance(self.node, yaml.MappingNode):
             for key_node, value_node in self.node.value:

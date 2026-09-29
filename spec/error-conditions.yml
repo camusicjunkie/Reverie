@@ -76,6 +76,10 @@
   phase: configure
   fields: [file, key]
   implemented: true
+- id: configure.unknown_declaration
+  phase: configure
+  fields: [file, key, line]
+  implemented: true
 - id: configure.unexpected_tuple_keys
   phase: configure
   fields: [file, key_path]

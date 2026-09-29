@@ -29,6 +29,20 @@ _TUPLE_STRATEGIES = {"unique_tuple", "deep_tuple"}
 # point (ADR 0005).
 _MERGE_ENTRY_KEYS = {"strategy", "tuple_keys"}
 
+# Every field `reverie.yml` declares, in the order this module reads them
+# below. The schema is closed: a key that is not one of these declares
+# nothing, and `configure.unknown_declaration` says so rather than letting
+# the read pass over it (issue #62).
+_DOCUMENT_FIELDS = (
+    "layout",
+    "chain",
+    "defaults",
+    "merge",
+    "secrets",
+    "secret_backend",
+    "inventory",
+)
+
 
 def _report_if_malformed(
     field: reverie_yml.Field,
@@ -178,6 +192,20 @@ def configure(source_arg: str | None) -> SourceConfig:
             detail="expected a mapping at the document root",
         )
         collector.raise_if_any()
+
+    # A misspelled field is not a smaller fault than a malformed one: the
+    # read passes over it and the compile succeeds against a schema the
+    # author did not write. `merges:` for `merge:` declares no policy at
+    # all, so every key path falls back to ambient `first` and the
+    # artifact comes out quietly different.
+    for key, _value_field in document.entries():
+        if key not in _DOCUMENT_FIELDS:
+            document.report(
+                collector,
+                "configure.unknown_declaration",
+                key=key,
+                line=document.key_line(key),
+            )
 
     layout_field = document.field("layout")
     # An undeclared `layout:` is the empty layout; `layout:` written with no
