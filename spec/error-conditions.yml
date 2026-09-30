@@ -60,6 +60,14 @@
   phase: configure
   fields: [file, key_path]
   implemented: true
+- id: configure.empty_tuple_keys
+  phase: configure
+  fields: [file, key_path]
+  implemented: true
+- id: configure.malformed_tuple_keys
+  phase: configure
+  fields: [file, key_path, line]
+  implemented: true
 - id: configure.ambiguous_specificity
   phase: configure
   fields: [file, key_path]

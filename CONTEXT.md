@@ -32,7 +32,7 @@ The optional, lowest-precedence layer beneath the chain.
 A directory template that a host's position in the source tree is validated against, never inferred from. Host files no longer need expressions to read their own facts back out of their path.
 
 **Merge policy**:
-A declaration, addressed by key path, of exactly how values at that path combine across layers: one strategy, written bare or as `{strategy, tuple_keys}`.
+A declaration, addressed by key path, of exactly how values at that path combine across layers: one strategy, written bare or as `{strategy, tuple_keys}`. Under a tuple strategy the `tuple_keys` name at least one key: element identity *is* the declared keys, so declaring none asks for an identity that cannot exist and is a named condition rather than a fold that quietly never folds.
 _Avoid_: lookup_options (Hiera's name by way of Datum, for an operation Reverie doesn't have).
 
 **Strategy**:

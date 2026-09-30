@@ -277,7 +277,23 @@ def configure(source_arg: str | None) -> SourceConfig:
             tuple_keys_field = entry_field.field("tuple_keys")
             declares_tuple_keys = tuple_keys_field.present
             raw_tuple_keys = tuple_keys_field.shaped(list)
-            if raw_tuple_keys is not None and all(isinstance(key, str) for key in raw_tuple_keys):
+            # The `_report_if_malformed` rule, written out because the shape
+            # is a list *of strings* and the position is the field's while
+            # the subject is the key path: null declares nothing, and
+            # anything that is not a list of strings is malformed under its
+            # own name rather than being reported as the absence of a
+            # declaration the author is looking straight at.
+            if tuple_keys_field.value is not None and (
+                raw_tuple_keys is None or not all(isinstance(key, str) for key in raw_tuple_keys)
+            ):
+                entry_field.report(
+                    collector,
+                    "configure.malformed_tuple_keys",
+                    key_path=pattern,
+                    line=tuple_keys_field.line,
+                )
+                continue
+            if raw_tuple_keys is not None:
                 tuple_keys = tuple(raw_tuple_keys)
         else:
             entry_field.report(collector, "configure.missing_strategy", key_path=pattern)
@@ -291,6 +307,16 @@ def configure(source_arg: str | None) -> SourceConfig:
 
         if strategy in _TUPLE_STRATEGIES and tuple_keys is None:
             entry_field.report(collector, "configure.missing_tuple_keys", key_path=pattern)
+            continue
+
+        # Element identity under a tuple strategy *is* the declared keys, so
+        # declaring none asks for an identity that cannot exist:
+        # `list_merge.elements_equal` answers False for every pair, every
+        # group is a group of one, and `deep_tuple` behaves exactly like
+        # `append` -- a declaration the compiler read and then quietly did
+        # not honour, which ADR 0009 forbids.
+        if strategy in _TUPLE_STRATEGIES and not tuple_keys:
+            entry_field.report(collector, "configure.empty_tuple_keys", key_path=pattern)
             continue
 
         if strategy not in _TUPLE_STRATEGIES and declares_tuple_keys:

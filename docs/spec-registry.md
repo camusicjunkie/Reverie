@@ -12,6 +12,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.chain_template_illegal_expression` | file, line | yes |
 | `configure.chain_template_nested_reference` | file, line | yes |
 | `configure.chain_template_unknown_namespace` | file, line | yes |
+| `configure.empty_tuple_keys` | file, key_path | yes |
 | `configure.malformed_ansible_host` | file, line | yes |
 | `configure.malformed_chain` | file, line | yes |
 | `configure.malformed_chain_entry` | file, entry | yes |
@@ -28,6 +29,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.malformed_secret_backend_options` | file, line | yes |
 | `configure.malformed_secret_entry` | file, line | yes |
 | `configure.malformed_secrets` | file, line | yes |
+| `configure.malformed_tuple_keys` | file, key_path, line | yes |
 | `configure.missing_defaults_directory` | file | yes |
 | `configure.missing_host_argument` | -- | yes |
 | `configure.missing_source_argument` | -- | yes |
