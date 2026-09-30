@@ -19,6 +19,7 @@ generated header.
 
 from __future__ import annotations
 
+import math
 import re
 
 import yaml
@@ -426,6 +427,14 @@ def _check_tags(loader: yaml.SafeLoader, node: yaml.Node, *, root_of: str | None
         # A structured address, not material -- still only a scalar makes
         # sense as "an address", and an empty one is unusable (the two
         # acceptance criteria this tag's ticket names).
+        #
+        # Those two rules are the whole check, and returning here is what
+        # exempts an address from the balanced-`{{` rule below. Deliberate:
+        # an address is never a template, deferred or otherwise. It is
+        # written into the backend's `lookup()` call as a quoted Jinja
+        # string literal (CONTEXT.md "!secret"), inside which a brace is
+        # inert text -- so a brace-bearing address is carried verbatim
+        # rather than named as a condition.
         if not isinstance(node, yaml.ScalarNode) or not node.value.strip():
             # The registry declares `load.empty_secret_address` with no
             # fields at all, so the line this node sits at is deliberately
@@ -561,6 +570,63 @@ def dump_flow_scalar(value: object) -> str:
     if "/" in rendered and not rendered.startswith("'"):
         rendered = "'" + rendered.replace("'", "''") + "'"
     return tag + rendered
+
+
+def _jinja_string_literal(text: str) -> str:
+    """`text` as a single-quoted Jinja string literal.
+
+    Jinja reads the body of a string literal with Python's own escape rules,
+    so exactly two characters need escaping: a backslash, which would
+    otherwise consume whatever follows it, and the quote that would
+    otherwise close the literal early. Everything else -- `{{` and `}}`
+    included -- is ordinary text once it sits inside a literal, because
+    Jinja's lexer matches the string before it looks for the end of the
+    expression.
+    """
+
+    return "'" + text.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def dump_jinja_literal(value: object) -> str:
+    """One value as the Jinja literal that stands for it.
+
+    The counterpart of `dump_flow_scalar` for the other syntax Reverie
+    writes values into: emit translates a `!secret` address to the declared
+    backend's `lookup()` call (CONTEXT.md "!secret"), and the lookup name,
+    the address, and every option value are all values of Reverie's that a
+    *Jinja* grammar then has to read back. One rule writes all three, rather
+    than the call being assembled by concatenation and each part quoted, or
+    not quoted, on its own.
+
+    Not Python's `repr`: it coincides for plain ASCII text and diverges
+    elsewhere -- it reaches for double quotes rather than escape an
+    apostrophe, and it is under no obligation to keep agreeing with Jinja
+    about anything else.
+
+    The closed value domain (ADR 0008) has a literal for each of its types.
+    Anything else -- including a float with no finite value, which Jinja has
+    no name for -- is written as the string of itself, since a broken
+    expression is worse than a value that reads as text.
+    """
+
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "none"
+    if isinstance(value, int):
+        return repr(value)
+    if isinstance(value, float) and math.isfinite(value):
+        return repr(value)
+    if isinstance(value, str):
+        return _jinja_string_literal(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(dump_jinja_literal(item) for item in value) + "]"
+    if isinstance(value, dict):
+        entries = sorted(
+            (dump_jinja_literal(key), dump_jinja_literal(item)) for key, item in value.items()
+        )
+        return "{" + ", ".join(f"{key}: {item}" for key, item in entries) + "}"
+    return _jinja_string_literal(str(value))
 
 
 def write_generated_file(data: dict) -> bytes:

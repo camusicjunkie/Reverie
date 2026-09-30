@@ -21,7 +21,12 @@ from reverie.phases.configure import SecretBackend, SourceConfig
 from reverie.phases.enumerate import HostPlan
 from reverie.phases.resolve import ResolvedHost
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
-from reverie.yaml_io import Secret, has_generated_header, write_generated_file
+from reverie.yaml_io import (
+    Secret,
+    dump_jinja_literal,
+    has_generated_header,
+    write_generated_file,
+)
 
 PHASE = "emit"
 
@@ -33,10 +38,24 @@ def _secret_call(backend: SecretBackend, address: str) -> str:
     -- Ansible's own `lookup()` resolves it natively at play time. `options`
     are public by construction (ADR 0005), so they ride along in the call
     itself rather than anywhere Reverie would have to keep them secret.
+
+    The call is Jinja, not YAML, so every value written into it goes through
+    `dump_jinja_literal` -- the address, the lookup name, and each option
+    value alike. Nothing here is attacker-adjacent, but all of it is
+    operator data that Reverie carries verbatim and then re-emits into a
+    second language's grammar, and an address holding an apostrophe or a
+    `{{` would otherwise escape the literal it was meant to sit inside.
+
+    An option's *name* is the one part that cannot be quoted: it is a Jinja
+    keyword-argument name, and the backend declaration owns whether it is
+    one.
     """
 
-    kwargs = "".join(f", {key}={value!r}" for key, value in sorted(backend.options.items()))
-    return f"{{{{ lookup('{backend.lookup}', '{address}'{kwargs}) }}}}"
+    arguments = [dump_jinja_literal(backend.lookup), dump_jinja_literal(address)]
+    arguments += [
+        f"{key}={dump_jinja_literal(value)}" for key, value in sorted(backend.options.items())
+    ]
+    return "{{ lookup(" + ", ".join(arguments) + ") }}"
 
 
 def _translate_secrets(value: object, backend: SecretBackend | None):

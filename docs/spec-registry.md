@@ -131,7 +131,7 @@ _No error conditions._
 | --- | --- | --- |
 | `!remove` | consumed_during_merge | Marks removal of a key, scalar list element, or tuple-matched list-of-maps element. Never emitted in output. |
 | `!vault` | passthrough | Marks an opaque, ansible-vault-encrypted scalar. Never inspected, interpolated, or compared -- copied into the artifact verbatim. |
-| `!secret` | consumed_at_emit | Marks a structured reference to an address in the external secret-store backend. Translated to the backend's native form at emit. |
+| `!secret` | consumed_at_emit | Marks a structured reference to an address in the external secret-store backend. Translated to the backend's native form at emit, where the address is written into the Jinja lookup() call as a quoted string literal -- so an address holding an apostrophe, a backslash, or a `{{`/`}}` is carried verbatim rather than rejected, and the balanced-brace rule that governs a plain string does not apply to it. The only address `load` rejects is one that is not a non-empty scalar (load.empty_secret_address). |
 
 ## Value shapes
 

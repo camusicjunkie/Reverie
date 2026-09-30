@@ -87,7 +87,7 @@ The tag marking removal of a key, scalar list element, or tuple-matched list-of-
 The tag marking an opaque, `ansible-vault`-encrypted scalar. Never inspected, interpolated, or compared — copied into the artifact verbatim.
 
 **`!secret`**:
-The tag marking a structured reference to an address in the one external secret-store backend. Translated to the backend's native form at emit, never appears in the artifact as ciphertext, and — unlike `!vault` — can participate in `unique` and tuple matching because it's an address, not material.
+The tag marking a structured reference to an address in the one external secret-store backend. Translated to the backend's native form at emit, never appears in the artifact as ciphertext, and — unlike `!vault` — can participate in `unique` and tuple matching because it's an address, not material. That native form is a `lookup()` call, which is Jinja and not YAML, so the address — along with the lookup name and every option value — is written into it as a quoted Jinja string literal (`yaml_io.dump_jinja_literal`), the counterpart of the flow-scalar quoting an **RSOP address** uses for the same reason. An address is therefore carried verbatim whatever it holds: an apostrophe, a backslash, or a `{{` that would read as a template anywhere else is inert text inside a literal, so no address is a `load` condition on grounds of the characters in it — the one rule is that it be a non-empty scalar.
 
 **Phase**:
 One of the six named stages a compile passes through in order: configure, enumerate, load, validate, resolve, emit. Every error condition is scoped to exactly one phase.
