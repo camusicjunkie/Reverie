@@ -8,9 +8,10 @@ shape, and that generated prose docs aren't stale.
 
 from __future__ import annotations
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 from reverie import spec_registry
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+
 from reverie.errors import PhaseFailed
 from reverie.phases import emit as emit_phase
 from reverie.phases.configure import SourceConfig

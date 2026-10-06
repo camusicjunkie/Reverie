@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 COMPILER_VERSION = "0.1.0"
 
 # Version of the artifact/RSOP schema contract, independent of the

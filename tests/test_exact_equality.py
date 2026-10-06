@@ -4,7 +4,7 @@ Same type, same value -- no case folding, no coercion. `test_merge_lists`
 covers the positive half (a genuine duplicate collapses); these are the
 negative half, which is what the story is actually about:
 
-    … so that two AD group names differing only by a typo in case are
+    ... so that two AD group names differing only by a typo in case are
     visibly both present in the artifact rather than silently collapsed.
 
 Its own fixture rather than an extension of `merge_lists`, because several

@@ -10,7 +10,9 @@ import yaml
 from tests.conftest import assert_diagnostic, run_reverie
 
 
-def _add_secret_backend(source, lookup: str = "community.hashi_vault.vault_kv2_get", options: dict | None = None) -> None:
+def _add_secret_backend(
+    source, lookup: str = "community.hashi_vault.vault_kv2_get", options: dict | None = None
+) -> None:
     reverie_yml = source / "reverie.yml"
     text = reverie_yml.read_text(encoding="utf-8")
     block = {"secret_backend": {"lookup": lookup, "options": options or {"mount_point": "secret"}}}

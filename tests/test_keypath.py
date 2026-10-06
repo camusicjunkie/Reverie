@@ -5,8 +5,9 @@ Direct unit tests over literal key paths -- no fixture tree or subprocess.
 
 from __future__ import annotations
 
-import pytest
 from dataclasses import dataclass
+
+import pytest
 
 from reverie import keypath
 

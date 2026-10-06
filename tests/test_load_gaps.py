@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 import pytest
+
 from tests.conftest import assert_diagnostic, run_reverie
 
 

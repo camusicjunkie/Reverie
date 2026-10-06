@@ -149,7 +149,12 @@ def _plan_owned_directory(directory: Path, planned: dict[str, bytes], collector:
     return stale
 
 
-def emit(config: SourceConfig, hosts: list[ResolvedHost], host_plans: list[HostPlan], groups: dict[str, list[str]]) -> None:
+def emit(
+    config: SourceConfig,
+    hosts: list[ResolvedHost],
+    host_plans: list[HostPlan],
+    groups: dict[str, list[str]],
+) -> None:
     collector = DiagnosticCollector(PHASE)
 
     host_vars_dir = config.root / "host_vars"
