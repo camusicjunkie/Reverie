@@ -1,0 +1,12 @@
+#!/bin/sh
+# Enable once per clone: git config core.hooksPath .githooks
+set -e
+
+python scripts/generate_spec_docs.py >/dev/null
+if ! git diff --quiet -- docs/spec-registry.md; then
+    echo "pre-commit: docs/spec-registry.md was stale and has been regenerated -- stage it and commit again." >&2
+    exit 1
+fi
+
+python -m ruff check reverie tests scripts
+python -m pytest -q
