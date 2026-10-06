@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh issue close:*)",
+      "Bash(gh issue create:*)",
+      "Bash(scripts/frontier.sh:*)",
+      "Bash(python scripts/compare_to_head.py:*)",
+      "Bash(python scripts/generate_spec_docs.py:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m ruff check:*)"
+    ]
+  }
+}
