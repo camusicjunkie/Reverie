@@ -73,7 +73,12 @@ def _check_removals(
 
         if isinstance(value, Remove):
             if path not in seen_paths:
-                collector.add("validate.remove_matches_nothing")
+                collector.add(
+                    "validate.remove_matches_nothing",
+                    file=str(entry.layer.path),
+                    key_path=path,
+                    kind="map_key",
+                )
         else:
             seen_paths.add(path)
 
@@ -90,7 +95,12 @@ def _check_removals(
                     list_merge.elements_equal(element.value, existing, strategy, tuple_keys)
                     for existing in prior
                 ):
-                    collector.add("validate.remove_matches_nothing")
+                    collector.add(
+                        "validate.remove_matches_nothing",
+                        file=str(entry.layer.path),
+                        key_path=path,
+                        kind="list_element",
+                    )
 
             seen_list_elements[path] = prior + [e for e in value if not isinstance(e, Remove)]
 
@@ -267,9 +277,9 @@ class PolicyObservation:
         if self.compared_vault:
             yield "validate.secret_not_comparable", {"key_path": pattern}
         if self.element_missing_tuple_key:
-            yield "validate.missing_tuple_key", {}
+            yield "validate.missing_tuple_key", {"pattern": pattern}
         if self.met_plain_list_under_tuple:
-            yield "validate.non_map_in_tuple_merge", {}
+            yield "validate.non_map_in_tuple_merge", {"pattern": pattern}
 
         if not self.matched_a_path:
             yield "validate.pattern_matches_nothing", {"pattern": pattern}

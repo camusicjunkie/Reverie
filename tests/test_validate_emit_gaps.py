@@ -55,7 +55,7 @@ def test_element_missing_a_declared_tuple_key_is_a_validate_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "validate.missing_tuple_key")
+    assert_diagnostic(diagnostics, "validate.missing_tuple_key", pattern="groups")
 
 
 def test_host_resolving_to_no_keys_at_all_is_a_validate_error(fixture_dir):
@@ -169,7 +169,13 @@ def test_two_distinct_conditions_in_one_phase_are_collected_together(fixture_dir
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
     assert_diagnostic(diagnostics, "validate.pattern_matches_nothing", pattern="no_such_key")
-    assert_diagnostic(diagnostics, "validate.remove_matches_nothing")
+    assert_diagnostic(
+        diagnostics,
+        "validate.remove_matches_nothing",
+        file=str(source / "roles" / "web.yml"),
+        key_path="never_defined_anywhere",
+        kind="map_key",
+    )
     # Every reported condition belongs to the phase that aborted: the run
     # stops at the boundary, it does not continue into resolve or emit.
     assert {d["phase"] for d in diagnostics} == {"validate"}

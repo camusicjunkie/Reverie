@@ -83,6 +83,7 @@ def test_a_tuple_strategy_meeting_only_a_plain_list_reports_the_specific_fault()
     observation = observed(policy, {"ports": [80, 443]})
 
     assert ids(observation) == ["validate.non_map_in_tuple_merge"]
+    assert dict(observation.conditions())["validate.non_map_in_tuple_merge"] == {"pattern": "ports"}
 
 
 def test_a_tuple_strategy_folding_maps_that_lack_a_declared_key():
@@ -90,6 +91,7 @@ def test_a_tuple_strategy_folding_maps_that_lack_a_declared_key():
     observation = observed(policy, {"rules": [{"port": 80}]}, {"rules": [{"name": "web"}]})
 
     assert ids(observation) == ["validate.missing_tuple_key"]
+    assert dict(observation.conditions())["validate.missing_tuple_key"] == {"pattern": "rules"}
 
 
 def test_a_tuple_strategy_that_folds_cleanly_reports_nothing():

@@ -115,7 +115,13 @@ def test_remove_on_list_element_matching_nothing_below_is_a_validate_error(fixtu
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "validate.remove_matches_nothing")
+    assert_diagnostic(
+        diagnostics,
+        "validate.remove_matches_nothing",
+        file=str(source / "roles" / "web.yml"),
+        key_path="features",
+        kind="list_element",
+    )
 
 
 @pytest.mark.story(13)
@@ -167,7 +173,7 @@ def test_tuple_strategy_against_a_plain_list_is_a_validate_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "validate.non_map_in_tuple_merge")
+    assert_diagnostic(diagnostics, "validate.non_map_in_tuple_merge", pattern="members")
 
 
 def test_list_strategy_never_applying_is_a_validate_error(fixture_dir):
@@ -204,7 +210,7 @@ def test_non_map_tuple_merge_on_one_host_is_not_masked_by_another_hosts_map_shap
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "validate.non_map_in_tuple_merge")
+    assert_diagnostic(diagnostics, "validate.non_map_in_tuple_merge", pattern="groups")
     assert not any(d["id"] == "validate.strategy_never_applies" for d in diagnostics), diagnostics
 
 

@@ -43,7 +43,7 @@ def test_host_missing_declared_ansible_host_fact_is_an_enumerate_error(fixture_d
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "enumerate.missing_ansible_host_fact")
+    assert_diagnostic(diagnostics, "enumerate.missing_ansible_host_fact", host="host2", fact="ip")
     assert not (source / "inventory").exists()
 
 
@@ -55,7 +55,7 @@ def test_null_ansible_host_fact_is_treated_as_missing_not_stringified(fixture_di
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "enumerate.missing_ansible_host_fact")
+    assert_diagnostic(diagnostics, "enumerate.missing_ansible_host_fact", host="host2", fact="ip")
 
 
 def test_fact_value_that_is_not_a_legal_group_name_is_rejected(fixture_dir):
@@ -78,7 +78,7 @@ def test_emitted_group_name_colliding_with_a_host_name_is_an_enumerate_error(fix
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "enumerate.group_host_name_collision")
+    assert_diagnostic(diagnostics, "enumerate.group_host_name_collision", name="svc_web")
 
 
 def test_two_facts_producing_the_same_group_name_is_an_enumerate_error(fixture_dir):
@@ -96,7 +96,7 @@ def test_two_facts_producing_the_same_group_name_is_an_enumerate_error(fixture_d
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "enumerate.group_name_collision")
+    assert_diagnostic(diagnostics, "enumerate.group_name_collision", group="env_prod")
 
 
 def test_declared_group_fact_with_zero_hosts_having_it_is_an_enumerate_error(fixture_dir):
@@ -113,7 +113,7 @@ def test_declared_group_fact_with_zero_hosts_having_it_is_an_enumerate_error(fix
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "enumerate.ungrounded_group_fact")
+    assert_diagnostic(diagnostics, "enumerate.ungrounded_group_fact", fact="team")
 
 
 def test_chain_fact_never_declared_in_inventory_groups_warns_not_errors(fixture_dir):

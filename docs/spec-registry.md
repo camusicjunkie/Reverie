@@ -36,7 +36,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.missing_source_argument` | -- | yes |
 | `configure.missing_strategy` | file, key_path | yes |
 | `configure.missing_tuple_keys` | file, key_path | yes |
-| `configure.no_secret_backend` | -- | yes |
+| `configure.no_secret_backend` | file | yes |
 | `configure.reverie_yml_not_found` | file | yes |
 | `configure.rsop_output_in_estate` | path, tree | yes |
 | `configure.rsop_output_parent_missing` | path | yes |
@@ -51,27 +51,27 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | id | fields | implemented |
 | --- | --- | --- |
 | `enumerate.address_escapes_root` | host, pattern | yes |
-| `enumerate.group_host_name_collision` | -- | yes |
-| `enumerate.group_name_collision` | -- | yes |
+| `enumerate.group_host_name_collision` | name | yes |
+| `enumerate.group_name_collision` | group | yes |
 | `enumerate.host_layout_violation` | host | yes |
 | `enumerate.host_walks_no_layers` | host | yes |
 | `enumerate.illegal_fact_value` | host, key_path | yes |
 | `enumerate.illegal_group_name` | host, fact, value | yes |
-| `enumerate.missing_ansible_host_fact` | -- | yes |
+| `enumerate.missing_ansible_host_fact` | host, fact | yes |
 | `enumerate.missing_host_fact` | host, chain_entry, fact | yes |
 | `enumerate.missing_layer_file` | host, chain_entry, rendered_address | yes |
 | `enumerate.non_scalar_fact` | host, key_path | yes |
 | `enumerate.rsop_host_not_found` | -- | yes |
-| `enumerate.ungrounded_group_fact` | -- | yes |
+| `enumerate.ungrounded_group_fact` | fact | yes |
 
 ## load
 
 | id | fields | implemented |
 | --- | --- | --- |
 | `load.document_not_a_map` | file, line | yes |
-| `load.duplicate_host_name` | -- | yes |
+| `load.duplicate_host_name` | host, file, other_file | yes |
 | `load.duplicate_key` | file, line | yes |
-| `load.empty_secret_address` | -- | yes |
+| `load.empty_secret_address` | file, line | yes |
 | `load.forbidden_alias` | file, line | yes |
 | `load.illegal_fact_name` | file, line | yes |
 | `load.invalid_yaml` | file, line, detail | yes |
@@ -90,10 +90,10 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `validate.duplicate_floor_key` | file, line | yes |
 | `validate.duplicate_in_layer` | file, line | yes |
 | `validate.host_has_no_keys` | host | yes |
-| `validate.missing_tuple_key` | -- | yes |
-| `validate.non_map_in_tuple_merge` | -- | yes |
+| `validate.missing_tuple_key` | pattern | yes |
+| `validate.non_map_in_tuple_merge` | pattern | yes |
 | `validate.pattern_matches_nothing` | pattern | yes |
-| `validate.remove_matches_nothing` | -- | yes |
+| `validate.remove_matches_nothing` | file, key_path, kind | yes |
 | `validate.secret_is_plaintext` | layer | yes |
 | `validate.secret_not_comparable` | key_path | yes |
 | `validate.secrets_pattern_matches_nothing` | pattern | yes |

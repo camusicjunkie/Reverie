@@ -282,7 +282,9 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
             if _has_fact(host_facts, config.ansible_host_fact):
                 ansible_host = str(host_facts[config.ansible_host_fact])
             elif not unreadable:
-                collector.add("enumerate.missing_ansible_host_fact")
+                collector.add(
+                    "enumerate.missing_ansible_host_fact", host=name, fact=config.ansible_host_fact
+                )
 
         plans.append(HostPlan(name=name, file=host_file, layers=layers, ansible_host=ansible_host))
 
@@ -291,7 +293,7 @@ def enumerate_hosts(config: SourceConfig) -> EnumerateResult:
     host_names = {plan.name for plan in plans}
     for group_name in groups:
         if group_name in host_names:
-            collector.add("enumerate.group_host_name_collision")
+            collector.add("enumerate.group_host_name_collision", name=group_name)
 
     warnings = _chain_fact_warnings(config)
 
@@ -331,11 +333,11 @@ def _build_groups(
 
     for group_fact in group_facts:
         if group_fact.fact not in grounded_facts:
-            collector.add("enumerate.ungrounded_group_fact")
+            collector.add("enumerate.ungrounded_group_fact", fact=group_fact.fact)
 
-    for sources in group_sources.values():
+    for group_name, sources in group_sources.items():
         if len(sources) > 1:
-            collector.add("enumerate.group_name_collision")
+            collector.add("enumerate.group_name_collision", group=group_name)
 
     return groups
 

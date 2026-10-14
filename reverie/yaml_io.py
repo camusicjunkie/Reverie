@@ -52,39 +52,26 @@ class SourceConditionError(Exception):
     than a class per condition, and the caller is left with nothing to
     translate -- it supplies the `file`, which is the one field it knows
     and this module doesn't, and forwards the rest.
-
-    A condition the registry declares with no fields at all is raised
-    `positioned=False` -- there being no `line` to carry, there is no
-    `file` either. Said at the raise site rather than inferred from a
-    missing line, so a rule that simply couldn't find its position still
-    reports the file it was found in.
     """
 
     def __init__(
         self,
         condition: str,
         line: int | None = None,
-        *,
-        positioned: bool = True,
         **fields,
     ):
         self.condition = condition
         self.line = line
-        self.positioned = positioned
         self.fields = fields
         super().__init__(condition)
 
     def declared_fields(self, *, file: str) -> dict:
         """Every field this condition declares, given the file the caller opened.
 
-        `file` and `line` are the position, and a positioned condition
-        declares both; the rest is what the raise site named. A condition
-        raised unpositioned declares neither, and `file` would be a field
-        its registry entry doesn't have.
+        `file` and `line` are the position; the rest is what the raise
+        site named.
         """
 
-        if not self.positioned:
-            return dict(self.fields)
         return {**self.fields, "file": file, "line": self.line}
 
 
@@ -436,11 +423,7 @@ def _check_tags(loader: yaml.SafeLoader, node: yaml.Node, *, root_of: str | None
         # inert text -- so a brace-bearing address is carried verbatim
         # rather than named as a condition.
         if not isinstance(node, yaml.ScalarNode) or not node.value.strip():
-            # The registry declares `load.empty_secret_address` with no
-            # fields at all, so the line this node sits at is deliberately
-            # not carried. Giving it one is a registry change, argued on
-            # its own.
-            raise SourceConditionError("load.empty_secret_address", positioned=False)
+            raise SourceConditionError("load.empty_secret_address", node.start_mark.line + 1)
         return
 
     _check_resolved_tag(node.tag, node)
