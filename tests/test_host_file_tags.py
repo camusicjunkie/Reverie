@@ -129,7 +129,7 @@ def test_a_tagged_ansible_host_fact_is_absent_rather_than_stringified(fixture_di
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "enumerate.missing_ansible_host_fact")
+    assert_diagnostic(diagnostics, "enumerate.missing_ansible_host_fact", host="host1", fact="ip")
     assert len(diagnostics) == 1, diagnostics
 
 

@@ -83,13 +83,19 @@ def load_layers(plans: list[HostPlan], secret_backend: SecretBackend | None = No
         cache[layer.path] = data
         return data
 
-    seen_names: set[str] = set()
+    first_claimant: dict[str, Path] = {}
     for plan in plans:
         # A host's identity is its filename stem (CONTEXT.md "Host"), so two
         # files at different depths under hosts/ can claim the same host.
-        if plan.name in seen_names:
-            collector.add("load.duplicate_host_name")
-        seen_names.add(plan.name)
+        if plan.name in first_claimant:
+            collector.add(
+                "load.duplicate_host_name",
+                host=plan.name,
+                file=str(first_claimant[plan.name]),
+                other_file=str(plan.file),
+            )
+        else:
+            first_claimant[plan.name] = plan.file
 
     loaded: list[LoadedHost] = []
     for plan in plans:
@@ -99,13 +105,22 @@ def load_layers(plans: list[HostPlan], secret_backend: SecretBackend | None = No
             layers.append((layer, data if data is not None else {}))
         loaded.append(LoadedHost(name=plan.name, layers=layers))
 
-    if secret_backend is None and any(
-        _contains_secret(data) for host in loaded for _layer, data in host.layers
-    ):
+    if secret_backend is None:
         # Detectable only now that layer files are parsed, but fixed by
         # the design tracker as a `configure` condition -- a `!secret` tag
         # is a reverie.yml-declaration problem, not a load-mechanics one.
-        collector.add("configure.no_secret_backend", phase="configure")
+        # Names the first layer file holding one, in walk order.
+        holder = next(
+            (
+                layer.path
+                for host in loaded
+                for layer, data in host.layers
+                if _contains_secret(data)
+            ),
+            None,
+        )
+        if holder is not None:
+            collector.add("configure.no_secret_backend", phase="configure", file=str(holder))
 
     collector.raise_if_any()
     return loaded

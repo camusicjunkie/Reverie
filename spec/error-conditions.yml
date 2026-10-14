@@ -74,7 +74,7 @@
   implemented: true
 - id: configure.no_secret_backend
   phase: configure
-  fields: []
+  fields: [file]
   implemented: true
 - id: configure.missing_strategy
   phase: configure
@@ -205,7 +205,7 @@
   implemented: true
 - id: load.empty_secret_address
   phase: load
-  fields: []
+  fields: [file, line]
   implemented: true
 - id: load.key_contains_separator
   phase: load
@@ -225,7 +225,7 @@
   implemented: true
 - id: load.duplicate_host_name
   phase: load
-  fields: []
+  fields: [host, file, other_file]
   implemented: true
 
 # --- enumerate -----------------------------------------------------------
@@ -252,11 +252,11 @@
   implemented: true
 - id: enumerate.group_name_collision
   phase: enumerate
-  fields: []
+  fields: [group]
   implemented: true
 - id: enumerate.ungrounded_group_fact
   phase: enumerate
-  fields: []
+  fields: [fact]
   implemented: true
 - id: enumerate.non_scalar_fact
   phase: enumerate
@@ -276,11 +276,11 @@
   implemented: true
 - id: enumerate.group_host_name_collision
   phase: enumerate
-  fields: []
+  fields: [name]
   implemented: true
 - id: enumerate.missing_ansible_host_fact
   phase: enumerate
-  fields: []
+  fields: [host, fact]
   implemented: true
 
 # --- validate --------------------------------------------------------------
@@ -293,9 +293,11 @@
   phase: validate
   fields: [pattern]
   implemented: true
+# `kind` is `map_key` (a `!remove` value at `key_path`) or `list_element` (a
+# `!remove` element of the list at `key_path`); `file` is the layer holding it.
 - id: validate.remove_matches_nothing
   phase: validate
-  fields: []
+  fields: [file, key_path, kind]
   implemented: true
 - id: validate.secret_is_plaintext
   phase: validate
@@ -307,11 +309,11 @@
   implemented: true
 - id: validate.non_map_in_tuple_merge
   phase: validate
-  fields: []
+  fields: [pattern]
   implemented: true
 - id: validate.missing_tuple_key
   phase: validate
-  fields: []
+  fields: [pattern]
   implemented: true
 - id: validate.secret_not_comparable
   phase: validate

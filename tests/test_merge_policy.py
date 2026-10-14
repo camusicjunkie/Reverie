@@ -77,7 +77,13 @@ def test_remove_targeting_only_a_more_specific_layer_is_a_validate_error(fixture
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "validate.remove_matches_nothing")
+    assert_diagnostic(
+        diagnostics,
+        "validate.remove_matches_nothing",
+        file=str(source / "roles" / "web.yml"),
+        key_path="port",
+        kind="map_key",
+    )
 
 
 @pytest.mark.story(12)

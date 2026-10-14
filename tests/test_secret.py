@@ -119,7 +119,9 @@ def test_secret_with_no_backend_declared_is_a_configure_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "configure.no_secret_backend")
+    assert_diagnostic(
+        diagnostics, "configure.no_secret_backend", file=str(source / "roles" / "web.yml")
+    )
 
 
 def test_secret_with_empty_address_is_a_load_error(fixture_dir):
@@ -135,7 +137,9 @@ def test_secret_with_empty_address_is_a_load_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "load.empty_secret_address")
+    assert_diagnostic(
+        diagnostics, "load.empty_secret_address", file=str(source / "roles" / "web.yml"), line=3
+    )
 
 
 def test_bare_secret_tag_with_no_value_is_a_load_error(fixture_dir):
@@ -151,7 +155,9 @@ def test_bare_secret_tag_with_no_value_is_a_load_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    assert_diagnostic(diagnostics, "load.empty_secret_address")
+    assert_diagnostic(
+        diagnostics, "load.empty_secret_address", file=str(source / "roles" / "web.yml"), line=3
+    )
 
 
 def test_tag_other_than_closed_three_is_unknown_tag(fixture_dir):
