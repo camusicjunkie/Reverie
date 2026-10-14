@@ -239,7 +239,7 @@ def _list_elements(
 
     tuple_keys = decision.policy.tuple_keys if decision.policy else None
     folds = decision.folds_elements_as_maps
-    groups = list_merge.element_groups_by_layer(
+    groups = list_merge.element_groups(
         [contribution.value for contribution in effective], decision.strategy, tuple_keys
     )
 
