@@ -82,7 +82,7 @@
   implemented: true
 - id: configure.unknown_entry_key
   phase: configure
-  fields: [file, key]
+  fields: [file, key, line]
   implemented: true
 - id: configure.unknown_declaration
   phase: configure

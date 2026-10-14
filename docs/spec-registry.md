@@ -43,7 +43,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.unexpected_output_flag` | -- | yes |
 | `configure.unexpected_tuple_keys` | file, key_path | yes |
 | `configure.unknown_declaration` | file, key, line | yes |
-| `configure.unknown_entry_key` | file, key | yes |
+| `configure.unknown_entry_key` | file, key, line | yes |
 | `configure.unknown_strategy` | file, key_path, strategy | yes |
 
 ## enumerate
