@@ -7,7 +7,7 @@ Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all op
 - **Multi-line bodies** (issues, comments, edits): write the body with the Write tool into the session scratchpad, then pass `--body-file <path>`. Heredocs through Git Bash break on long bodies, and `/tmp` does not resolve to the same place for every tool on Windows.
 - **Filtering JSON**: use `gh`'s built-in `--jq`. Standalone `jq` is not installed.
 - **Create an issue**: `gh issue create --title "..." --body-file <path>`.
-- **Read an issue**: `gh issue view <number> --comments --json title,body,labels,comments`.
+- **Read an issue**: `gh issue view <number> --comments --json title,body,labels,comments`. Always pass `--json`: a plain `gh issue view <number>` prints nothing in this repo. `--json title,body` alone returns the ticket text.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
@@ -25,7 +25,7 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 - **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
 - **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42` and fall back to `gh issue view 42`.
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42 --json title,body` and fall back to `gh issue view 42 --json title,body`.
 
 ## When a skill says "publish to the issue tracker"
 
@@ -33,7 +33,7 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Use the **Read an issue** form above.
 
 ## Wayfinding operations
 
