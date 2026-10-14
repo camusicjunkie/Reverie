@@ -181,11 +181,14 @@ def test_non_map_layer_document_is_a_load_error(fixture_dir):
 
 def test_recompile_after_fixing_failure_matches_fresh_compile(fixture_dir):
     broken = fixture_dir("minimal")
+    # The fixture's own bytes, so "fixed" is byte-identical to a fresh copy
+    # whatever line endings this checkout gave the fixture.
+    original = (broken / "defaults" / "common.yml").read_bytes()
     (broken / "defaults" / "common.yml").write_text("site: dublin\nstamp: 2024-01-01\n", encoding="utf-8", newline="")
     failed = run_reverie("compile", str(broken))
     assert failed.returncode != 0
 
-    (broken / "defaults" / "common.yml").write_text("site: dublin\n", encoding="utf-8", newline="")
+    (broken / "defaults" / "common.yml").write_bytes(original)
     fixed = run_reverie("compile", str(broken))
     assert fixed.returncode == 0, fixed.stderr
 

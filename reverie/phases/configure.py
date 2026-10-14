@@ -29,6 +29,12 @@ _TUPLE_STRATEGIES = {"unique_tuple", "deep_tuple"}
 # point (ADR 0005).
 _MERGE_ENTRY_KEYS = {"strategy", "tuple_keys"}
 
+# The other nested blocks are closed the same way (issue #65): a key outside
+# the set declares nothing, and is named rather than passed over.
+_CHAIN_ENTRY_KEYS = {"address", "optional"}
+_SECRET_BACKEND_KEYS = {"lookup", "options"}
+_INVENTORY_KEYS = {"groups", "ansible_host"}
+
 # Every field `reverie.yml` declares, in the order this module reads them
 # below. The schema is closed: a key that is not one of these declares
 # nothing, and `configure.unknown_declaration` says so rather than letting
@@ -68,6 +74,24 @@ def _report_if_malformed(
 
     if field.value is not None and field.shaped(shape) is None:
         field.report(collector, condition, line=field.line)
+
+
+def _close_block(field: reverie_yml.Field, allowed: set[str], collector: DiagnosticCollector) -> None:
+    """Name every key of the mapping `field` that is not in `allowed`.
+
+    The one mechanism that closes a nested block: `configure.unknown_entry_key`
+    at the key's own line. A field that is not a mapping has no keys, and its
+    shape is reported by the block's own malformed condition.
+    """
+
+    for key, _value_field in field.entries():
+        if key not in allowed:
+            field.report(
+                collector,
+                "configure.unknown_entry_key",
+                key=key,
+                line=field.key_line(key),
+            )
 
 
 def _validate_template(text: str, field: reverie_yml.Field, collector: DiagnosticCollector) -> None:
@@ -224,6 +248,7 @@ def configure(source_arg: str | None) -> SourceConfig:
         # An entry is a bare address, or a mapping declaring one -- and the
         # address is the field a template violation is reported against
         # either way.
+        _close_block(entry_field, _CHAIN_ENTRY_KEYS, collector)
         address_field = entry_field if entry_field.shaped(str) is not None else entry_field.field("address")
         address = address_field.shaped(str)
         if address is None:
@@ -265,9 +290,7 @@ def configure(source_arg: str | None) -> SourceConfig:
         if bare_strategy is not None:
             strategy = bare_strategy
         elif entry_field.shaped(dict) is not None:
-            for key, _value_field in entry_field.entries():
-                if key not in _MERGE_ENTRY_KEYS:
-                    entry_field.report(collector, "configure.unknown_entry_key", key=key)
+            _close_block(entry_field, _MERGE_ENTRY_KEYS, collector)
 
             strategy = entry_field.field("strategy").shaped(str)
             if strategy is None:
@@ -345,6 +368,7 @@ def configure(source_arg: str | None) -> SourceConfig:
         secrets.append(address)
 
     backend_field = document.field("secret_backend")
+    _close_block(backend_field, _SECRET_BACKEND_KEYS, collector)
     lookup = backend_field.field("lookup").shaped(str)
     # Not foldable into `_report_if_malformed`: what has to have a shape is
     # the child `lookup`, not `secret_backend:` itself. The presence test is
@@ -367,6 +391,7 @@ def configure(source_arg: str | None) -> SourceConfig:
     )
 
     inventory_field = document.field("inventory")
+    _close_block(inventory_field, _INVENTORY_KEYS, collector)
     _report_if_malformed(inventory_field, dict, "configure.malformed_inventory", collector)
     groups_field = inventory_field.field("groups")
     _report_if_malformed(groups_field, list, "configure.malformed_inventory_groups", collector)
