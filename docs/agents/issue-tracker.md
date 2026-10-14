@@ -21,11 +21,11 @@ Infer the repo from `git remote -v` — `gh` does this automatically when run in
 
 When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
 
-- **Read a PR**: `gh pr view <number> --comments --json title,body,comments` and `gh pr diff <number>` for the diff.
+- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
 - **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
 - **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42` and fall back to `gh issue view 42`.
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42 --json title,body` and fall back to `gh issue view 42 --json title,body`.
 
 ## When a skill says "publish to the issue tracker"
 
@@ -33,7 +33,7 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments --json title,body,labels,comments`. The plain form prints nothing.
+Use the **Read an issue** form above.
 
 ## Wayfinding operations
 
