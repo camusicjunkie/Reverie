@@ -83,7 +83,7 @@ def merges_elements_as_maps(strategy: str) -> bool:
     return strategy == "deep_tuple"
 
 
-def element_groups(
+def element_groups_by_layer(
     layer_lists: list[list[object]],
     strategy: str,
     tuple_keys: tuple[str, ...] | None,
