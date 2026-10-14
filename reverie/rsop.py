@@ -50,13 +50,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from reverie import merge_walk
+from reverie import merge_walk, prologue
 from reverie.errors import Diagnostic, DiagnosticCollector, PhaseFailed
 from reverie.phases import configure as configure_phase
 from reverie.phases import enumerate as enumerate_phase
-from reverie.phases import load as load_phase
 from reverie.phases import resolve as resolve_phase
-from reverie.phases import validate as validate_phase
 from reverie.phases.configure import SourceConfig
 from reverie.version import COMPILER_VERSION, SPEC_VERSION
 from reverie.yaml_io import Remove, Vault, dump_flow_scalar, dump_pinned
@@ -244,30 +242,28 @@ def compute_rsop(host_merges: merge_walk.HostMerges) -> dict[str, dict]:
 
 
 def rsop_source(source_arg: str | None, host: str | None, output: str | None) -> RsopResult:
-    """Run configure/enumerate/load/validate (exactly as `compile` does, so
-    the same diagnostics fire the same way) and render the target host's
+    """Run the shared prologue (`reverie.prologue` -- the very sequence
+    `compile` runs, so the same diagnostics fire the same way, with this
+    verb's own argument checks as its hooks) and render the target host's
     RSOP document without ever running resolve or emit."""
 
-    try:
-        config: SourceConfig = configure_phase.configure(source_arg)
+    def check_arguments(config: SourceConfig) -> None:
+        collector = DiagnosticCollector("configure")
+        configure_phase.check_host_argument(host, collector)
+        _check_output_path(output, config.root, collector)
+        collector.raise_if_any()
 
-        argument_collector = DiagnosticCollector("configure")
-        configure_phase.check_host_argument(host, argument_collector)
-        _check_output_path(output, config.root, argument_collector)
-        argument_collector.raise_if_any()
-
-        enumerated = enumerate_phase.enumerate_hosts(config)
-
-        host_collector = DiagnosticCollector("enumerate")
+    def check_host_exists(enumerated: enumerate_phase.EnumerateResult) -> None:
+        collector = DiagnosticCollector("enumerate")
         if host not in {plan.name for plan in enumerated.hosts}:
-            host_collector.add("enumerate.rsop_host_not_found")
-        host_collector.raise_if_any()
+            collector.add("enumerate.rsop_host_not_found")
+        collector.raise_if_any()
 
-        loaded = load_phase.load_layers(enumerated.hosts, config.secret_backend)
-        host_merges = merge_walk.walk_all(loaded, config.merge_policies)
-        validate_phase.validate(
-            host_merges, config.merge_policies, config.secrets, config.defaults
+    try:
+        shared = prologue.run(
+            source_arg, after_configure=check_arguments, after_enumerate=check_host_exists
         )
+        host_merges = shared.host_merges
 
         target = next(walked for walked in host_merges if walked.name == host)
         document = {
