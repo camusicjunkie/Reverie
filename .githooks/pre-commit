@@ -8,5 +8,6 @@ if ! git diff --quiet -- docs/spec-registry.md; then
     exit 1
 fi
 
+python scripts/check_utf8.py
 python -m ruff check reverie tests scripts
 python -m pytest -q

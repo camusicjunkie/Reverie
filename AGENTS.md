@@ -22,6 +22,6 @@ Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agen
 
 ### Checks
 
-`.githooks/pre-commit` regenerates `docs/spec-registry.md`, then runs ruff and pytest; CI runs the same. Enable it once per clone: `git config core.hooksPath .githooks`.
+`.githooks/pre-commit` regenerates `docs/spec-registry.md`, rejects tracked Markdown, YAML and Python that is not valid UTF-8 (`scripts/check_utf8.py`), then runs ruff and pytest; CI runs the same. Enable it once per clone: `git config core.hooksPath .githooks`.
 
 For a behaviour-preserving change (a refactor, a module move), `python scripts/compare_to_head.py` diffs every fixture's `compile` and `rsop` output against HEAD.

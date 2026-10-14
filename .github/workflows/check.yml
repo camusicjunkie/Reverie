@@ -17,5 +17,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
+      - run: python scripts/check_utf8.py
       - run: ruff check reverie tests scripts
       - run: python -m pytest -q
