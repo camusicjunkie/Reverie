@@ -1,2 +1,5 @@
 *.sh text eol=lf
 .githooks/* text eol=lf
+tests/fixtures/** text eol=lf
+*.yml text eol=lf
+docs/spec-registry.md text eol=lf
