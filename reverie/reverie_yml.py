@@ -128,16 +128,80 @@ class Field:
         collector.add(condition, file=self.file, **fields)
 
 
+@dataclass(frozen=True)
+class DuplicateKey:
+    """A key written a second (or later) time in one mapping: the key and
+    the line the repeated declaration sits on."""
+
+    key: Any
+    line: int
+
+
+class DuplicateKeysError(Exception):
+    """The document declares a key twice in one mapping, at any depth.
+
+    PyYAML's own rule is last-one-wins, silently, so the earlier
+    declaration would vanish from the constructed document. The read is
+    where the node tree is composed, so it is where that is visible --
+    `load`'s layer files are held to the same rule. Naming the condition
+    is `configure`'s to do, as for `yaml.YAMLError`; `duplicates` carries
+    one entry per repeated declaration, in document order.
+    """
+
+    def __init__(self, duplicates: list[DuplicateKey]):
+        self.duplicates = duplicates
+        super().__init__(f"duplicate keys: {[(d.key, d.line) for d in duplicates]}")
+
+
+def _duplicate_keys(root: yaml.Node | None) -> list[DuplicateKey]:
+    """Every repeated key in every mapping under `root`, in document order.
+
+    Keys are compared as written (resolved tag and text), so `1` and `"1"`
+    stay distinct, as they do once constructed. A node reached twice
+    through an alias is walked once, which also keeps a self-referencing
+    anchor from looping.
+    """
+
+    found: list[DuplicateKey] = []
+    seen_nodes: set[int] = set()
+
+    def walk(node: yaml.Node) -> None:
+        if id(node) in seen_nodes:
+            return
+        seen_nodes.add(id(node))
+        if isinstance(node, yaml.MappingNode):
+            keys: set[tuple[str, str]] = set()
+            for key_node, value_node in node.value:
+                if isinstance(key_node, yaml.ScalarNode) and key_node.tag != "tag:yaml.org,2002:merge":
+                    identity = (key_node.tag, key_node.value)
+                    if identity in keys:
+                        found.append(DuplicateKey(key_node.value, key_node.start_mark.line + 1))
+                    keys.add(identity)
+                walk(key_node)
+                walk(value_node)
+        elif isinstance(node, yaml.SequenceNode):
+            for item in node.value:
+                walk(item)
+
+    if root is not None:
+        walk(root)
+    return found
+
+
 def read(path: Path) -> Field:
     """Read and parse `path` once, returning its root as a `Field`.
 
-    Raises `yaml.YAMLError` for a document PyYAML cannot parse; naming that
-    condition is `configure`'s to do, since it owns the schema.
+    Raises `yaml.YAMLError` for a document PyYAML cannot parse, and
+    `DuplicateKeysError` for one that declares a key twice; naming those
+    conditions is `configure`'s to do, since it owns the schema.
     """
 
     loader = yaml.SafeLoader(path.read_text(encoding="utf-8"))
     try:
         node = loader.get_single_node()
+        duplicates = _duplicate_keys(node)
+        if duplicates:
+            raise DuplicateKeysError(duplicates)
         value = loader.construct_document(node) if node is not None else None
     finally:
         loader.dispose()

@@ -179,6 +179,15 @@ def configure(source_arg: str | None) -> SourceConfig:
     except yaml.YAMLError as exc:
         collector.add("configure.malformed_reverie_yml", file=str(reverie_yml_path), detail=str(exc))
         collector.raise_if_any()
+    except reverie_yml.DuplicateKeysError as exc:
+        for duplicate in exc.duplicates:
+            collector.add(
+                "configure.duplicate_key",
+                file=str(reverie_yml_path),
+                key=duplicate.key,
+                line=duplicate.line,
+            )
+        collector.raise_if_any()
 
     # A root holding nothing -- a blank file or a bare `null` -- is an empty
     # declaration, and every field below then reads as absent. Anything else

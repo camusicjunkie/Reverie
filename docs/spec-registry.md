@@ -12,6 +12,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `configure.chain_template_illegal_expression` | file, line | yes |
 | `configure.chain_template_nested_reference` | file, line | yes |
 | `configure.chain_template_unknown_namespace` | file, line | yes |
+| `configure.duplicate_key` | file, key, line | yes |
 | `configure.empty_tuple_keys` | file, key_path | yes |
 | `configure.malformed_ansible_host` | file, line | yes |
 | `configure.malformed_chain` | file, line | yes |
