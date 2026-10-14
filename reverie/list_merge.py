@@ -88,14 +88,25 @@ def element_groups_by_layer(
     strategy: str,
     tuple_keys: tuple[str, ...] | None,
 ) -> list[list[tuple[int, object]]]:
-    """`element_groups`, with each element paired to the index of the layer
-    list it came from.
+    """The kept elements of a list merge, each as the group of contributions
+    that count as "the same element" -- most-general-first within a group,
+    the groups themselves in the order the merge emits them. Each
+    contribution is paired with the index of the layer list it came from, so
+    a record inside a folded element can attribute its contributors.
 
-    Only `reverie.rsop` needs the pairing -- a record inside a folded
-    element attributes its contributors, so it has to know which layer
-    contributed each one, where `resolve` and `validate` care only about
-    the values. The grouping itself is one algorithm either way, so it
-    lives here once and `element_groups` drops the indices.
+    This is the whole of the ordering rule above, and the whole of
+    `!remove`'s list-element semantics, in one place: a `!remove` holds no
+    position and reaches only *downward*, matching elements contributed by
+    strictly more general layers.
+
+    `merge_walk` is the one caller that groups a list, so
+    every consumer of a host's merges sees the same grouping by
+    construction rather than by coincidence (issue #47): `resolve` turns
+    each group into one element (for `deep_tuple`, by merging it as a
+    map), `validate` judges the merges inside it, and `rsop` attributes
+    their contributors. A group of one is never merged at all, under any
+    strategy: its lone element is already the answer, so nothing beneath it
+    is ever visited.
     """
 
     removal_targets: list[object] = []
@@ -128,36 +139,6 @@ def element_groups_by_layer(
         removal_targets.extend(layer_removals)
 
     return groups
-
-
-def element_groups(
-    layer_lists: list[list[object]],
-    strategy: str,
-    tuple_keys: tuple[str, ...] | None,
-) -> list[list[object]]:
-    """The kept elements of a list merge, each as the group of contributions
-    that count as "the same element" -- most-general-first within a group,
-    the groups themselves in the order the merge emits them.
-
-    This is the whole of the ordering rule above, and the whole of
-    `!remove`'s list-element semantics, in one place: a `!remove` holds no
-    position and reaches only *downward*, matching elements contributed by
-    strictly more general layers.
-
-    `merge_walk` is the one caller that groups a list, so
-    every consumer of a host's merges sees the same grouping by
-    construction rather than by coincidence (issue #47): `resolve` turns
-    each group into one element (for `deep_tuple`, by merging it as a
-    map), `validate` judges the merges inside it, and `rsop` attributes
-    their contributors. A group of one is never merged at all, under any
-    strategy: its lone element is already the answer, so nothing beneath it
-    is ever visited.
-    """
-
-    return [
-        [element for _index, element in group]
-        for group in element_groups_by_layer(layer_lists, strategy, tuple_keys)
-    ]
 
 
 def has_map_element(layer_lists: list[list[object]]) -> bool:
