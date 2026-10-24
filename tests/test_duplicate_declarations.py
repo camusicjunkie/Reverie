@@ -10,21 +10,9 @@ duplicated `chain:` replaced the whole layer stack, with nothing said.
 
 from __future__ import annotations
 
-import json
-
-from tests.conftest import assert_diagnostic, run_reverie
+from tests.conftest import assert_diagnostic, failed_compile
 
 REVERIE_YML = 'layout: ""\nchain: []\ndefaults: defaults/common.yml\n'
-
-
-def failed_compile(fixture_dir, document: str):
-    source = fixture_dir("minimal")
-    (source / "reverie.yml").write_text(document, encoding="utf-8", newline="")
-
-    result = run_reverie("compile", str(source))
-
-    assert result.returncode != 0, f"expected a failed compile, got:\n{result.stdout}"
-    return source, json.loads(result.stderr)
 
 
 def test_a_duplicate_at_the_document_root_names_the_key_and_the_second_line(fixture_dir):

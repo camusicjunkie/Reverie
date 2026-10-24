@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -265,3 +266,20 @@ def run_reverie(
             )
 
     return result
+
+
+def failed_compile(fixture_dir, document: str) -> tuple[Path, list[dict]]:
+    """Compile the `minimal` fixture with `document` as its `reverie.yml`.
+
+    Returns the source tree and the diagnostics parsed from stderr, after
+    asserting the compile failed. Written with `newline=""` so the lines a
+    diagnostic names are the lines the document has, on every platform.
+    """
+
+    source = fixture_dir("minimal")
+    (source / "reverie.yml").write_text(document, encoding="utf-8", newline="")
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0, f"expected a failed compile, got:\n{result.stdout}"
+    return source, json.loads(result.stderr)

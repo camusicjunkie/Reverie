@@ -1,9 +1,7 @@
 """Issue #62: a key at the root of `reverie.yml` that `configure` never reads.
 
-[Name the malformed reverie.yml declarations the compiler drops in
-silence](https://github.com/camusicjunkie/Reverie/issues/58) and [Name the
-remaining reverie.yml declarations the compiler still drops in
-silence](https://github.com/camusicjunkie/Reverie/issues/59) swept the
+Issue #58 (the malformed reverie.yml declarations the compiler drops in
+silence) and issue #59 (the remaining ones) swept the
 malformed *values* under the keys the schema knows. Neither checked the
 key set itself, so a misspelled field declared nothing and the read passed
 over it -- the same silent degradation one level up.
