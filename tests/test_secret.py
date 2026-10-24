@@ -124,6 +124,26 @@ def test_secret_with_no_backend_declared_is_a_configure_error(fixture_dir):
     )
 
 
+def test_secret_with_a_null_secret_backend_is_a_configure_error(fixture_dir):
+    source = fixture_dir("merge")
+    reverie_yml = source / "reverie.yml"
+    reverie_yml.write_text(
+        reverie_yml.read_text(encoding="utf-8") + "secret_backend:\n", encoding="utf-8", newline=""
+    )
+    (source / "roles" / "web.yml").write_text(
+        "settings: {timeout: 60}\nnested: {a: {x: 99}, c: 3}\nport: !secret prod/svc#token\n",
+        encoding="utf-8",
+        newline="",
+    )
+
+    result = run_reverie("compile", str(source))
+
+    assert result.returncode != 0
+    diagnostics = json.loads(result.stderr)
+    assert_diagnostic(
+        diagnostics, "configure.no_secret_backend", file=str(source / "roles" / "web.yml")
+    )
+
 def test_secret_with_empty_address_is_a_load_error(fixture_dir):
     source = fixture_dir("merge")
     _add_secret_backend(source)
