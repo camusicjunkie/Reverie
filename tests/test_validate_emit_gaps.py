@@ -175,6 +175,7 @@ def test_two_distinct_conditions_in_one_phase_are_collected_together(fixture_dir
         file=str(source / "roles" / "web.yml"),
         key_path="never_defined_anywhere",
         kind="map_key",
+        line=1,
     )
     # Every reported condition belongs to the phase that aborted: the run
     # stops at the boundary, it does not continue into resolve or emit.

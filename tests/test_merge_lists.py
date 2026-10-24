@@ -121,6 +121,7 @@ def test_remove_on_list_element_matching_nothing_below_is_a_validate_error(fixtu
         file=str(source / "roles" / "web.yml"),
         key_path="features",
         kind="list_element",
+        line=1,
     )
 
 

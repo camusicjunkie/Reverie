@@ -110,13 +110,15 @@ class Remove:
     List-element removal needs more: `!remove foo` must still know it was
     "foo" so list-merge can find the general-layer element it matches, so
     `value` carries the tagged node's own constructed content (`None` for
-    a bare `!remove`).
+    a bare `!remove`). `line` is the one-based line the tag was written on,
+    so `validate.remove_matches_nothing` can name the `!remove` it drops.
     """
 
-    __slots__ = ("value",)
+    __slots__ = ("value", "line")
 
-    def __init__(self, value=None):
+    def __init__(self, value=None, line=None):
         self.value = value
+        self.line = line
 
     def __repr__(self) -> str:
         return "!remove"
@@ -192,6 +194,7 @@ def _construct_remove(loader: yaml.SafeLoader, node: yaml.Node) -> Remove:
     # The node's own tag is `!remove`, so construct it as whatever it would
     # have resolved to without that tag (a clone with the implicit tag),
     # rather than re-entering this constructor.
+    line = node.start_mark.line + 1
     if isinstance(node, yaml.ScalarNode):
         tag = loader.resolve(yaml.ScalarNode, node.value, (True, False))
         clone = yaml.ScalarNode(tag, node.value, node.start_mark, node.end_mark, node.style)
@@ -204,8 +207,8 @@ def _construct_remove(loader: yaml.SafeLoader, node: yaml.Node) -> Remove:
             "tag:yaml.org,2002:seq", node.value, node.start_mark, node.end_mark, node.flow_style
         )
     else:
-        return Remove(None)
-    return Remove(loader.construct_object(clone, deep=True))
+        return Remove(None, line)
+    return Remove(loader.construct_object(clone, deep=True), line)
 
 
 _ClosedLoader.add_constructor(REMOVE_TAG, _construct_remove)

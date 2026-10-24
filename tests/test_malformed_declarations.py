@@ -200,3 +200,23 @@ def test_a_document_root_holding_nothing_is_an_empty_declaration_not_a_malformed
 
     reported = json.loads(result.stderr) if result.returncode != 0 else []
     assert [d for d in reported if d["phase"] == "configure"] == []
+
+
+@pytest.mark.parametrize("value", ["vault", "5", "[a]"])
+def test_a_secret_backend_that_is_not_a_mapping_is_a_configure_error_not_a_traceback(
+    fixture_dir, value
+):
+    # Issue #75: `_close_block` runs on every field, so a non-mapping must have
+    # no keys to close and reach `configure.malformed_secret_backend`.
+    source, result = compile_document(
+        fixture_dir,
+        f'layout: ""\nchain: []\ndefaults: defaults/common.yml\nsecret_backend: {value}\n',
+    )
+
+    assert result.returncode != 0
+    assert "Traceback" not in result.stderr
+    diagnostics = json.loads(result.stderr)
+    assert [d["id"] for d in diagnostics] == ["configure.malformed_secret_backend"]
+    assert_diagnostic(
+        diagnostics, "configure.malformed_secret_backend", file=str(source / "reverie.yml"), line=4
+    )

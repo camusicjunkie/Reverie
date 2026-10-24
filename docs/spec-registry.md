@@ -93,7 +93,7 @@ The closed vocabularies the compiler and its conformance fixtures cite by name.
 | `validate.missing_tuple_key` | pattern | yes |
 | `validate.non_map_in_tuple_merge` | pattern | yes |
 | `validate.pattern_matches_nothing` | pattern | yes |
-| `validate.remove_matches_nothing` | file, key_path, kind | yes |
+| `validate.remove_matches_nothing` | file, key_path, kind, line | yes |
 | `validate.secret_is_plaintext` | layer | yes |
 | `validate.secret_not_comparable` | key_path | yes |
 | `validate.secrets_pattern_matches_nothing` | pattern | yes |

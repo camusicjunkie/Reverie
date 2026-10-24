@@ -8,6 +8,11 @@ the byte offset of the first bad byte.
 It reads each file's blob from the index, not the working copy: the hook runs
 before the commit, so the staged bytes are what would land. In CI's clean
 checkout the index equals the working tree, so the result is the same.
+
+A tracked file that is modified but not staged is therefore not checked at
+commit time, and that is deliberate: its working-copy bytes are not part of
+the commit, so a bad byte there cannot land. If it is staged later the hook
+checks it then, and CI checks every checked-out file in any case.
 """
 
 from __future__ import annotations

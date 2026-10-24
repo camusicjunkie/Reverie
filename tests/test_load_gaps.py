@@ -183,8 +183,12 @@ def test_two_host_files_with_the_same_stem_is_a_load_error(fixture_dir):
 
     assert result.returncode != 0
     diagnostics = json.loads(result.stderr)
-    found = assert_diagnostic(diagnostics, "load.duplicate_host_name", host="host2")
-    assert {found["file"], found["other_file"]} == {
-        str(source / "hosts" / "dublin" / "host2.yml"),
-        str(source / "hosts" / "paris" / "host2.yml"),
-    }
+    # `file` is the first claimant in enumeration order, `other_file` the
+    # later one (spec/error-conditions.yml says so).
+    assert_diagnostic(
+        diagnostics,
+        "load.duplicate_host_name",
+        host="host2",
+        file=str(source / "hosts" / "dublin" / "host2.yml"),
+        other_file=str(source / "hosts" / "paris" / "host2.yml"),
+    )
