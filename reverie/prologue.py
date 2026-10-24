@@ -1,13 +1,5 @@
-"""The prologue `compile` and `rsop` share: the phases up to and including
-`validate`, in one place.
-
-`rsop` promises to report exactly the diagnostics the `compile` it explains
-would, so the phase order lives here and neither verb restates it. What the
-two verbs do not share are their own argument conditions (`--output` is
-`rsop`'s alone, as `<host>` is), and those interleave with the phases: so a
-verb names them as hooks, which fire at the point in the sequence they are
-for.
-"""
+"""The prologue `compile` and `rsop` share (CONTEXT.md "Prologue"): the phase
+order lives here, and a verb's own argument checks plug in as hooks."""
 
 from __future__ import annotations
 
@@ -25,8 +17,7 @@ from reverie.phases.enumerate import EnumerateResult
 
 @dataclass(frozen=True)
 class Prologue:
-    """Everything a source tree yields once the diagnostics of the first four
-    phases have had their say (CONTEXT.md "Prologue")."""
+    """What `run` yields (CONTEXT.md "Prologue")."""
 
     config: SourceConfig
     enumerated: EnumerateResult

@@ -242,10 +242,9 @@ def compute_rsop(host_merges: merge_walk.HostMerges) -> dict[str, dict]:
 
 
 def rsop_source(source_arg: str | None, host: str | None, output: str | None) -> RsopResult:
-    """Run the shared prologue (`reverie.prologue` -- the very sequence
-    `compile` runs, so the same diagnostics fire the same way, with this
-    verb's own argument checks as its hooks) and render the target host's
-    RSOP document without ever running resolve or emit."""
+    """Run the prologue (CONTEXT.md "Prologue") with this verb's argument
+    checks as its hooks, and render the target host's RSOP document without
+    running resolve or emit."""
 
     def check_arguments(config: SourceConfig) -> None:
         collector = DiagnosticCollector("configure")
