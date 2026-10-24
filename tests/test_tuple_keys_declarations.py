@@ -5,8 +5,8 @@ Element identity under `unique_tuple`/`deep_tuple` *is* the declared keys
 cannot exist: `list_merge.elements_equal` answers False for every pair,
 every group is a group of one, and `deep_tuple` silently becomes `append`.
 That is degrade-and-continue, which ADR 0009 forbids -- the same fault
-[an unknown declaration at the root of reverie.yml is dropped in
-silence](https://github.com/camusicjunkie/Reverie/issues/62) named one
+an unknown declaration at the root of reverie.yml dropped in silence
+(issue #62) named one
 level up.
 
 The sibling case is a `tuple_keys` of the wrong shape, which was reported

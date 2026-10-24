@@ -227,6 +227,8 @@
   phase: load
   fields: [file, line]
   implemented: true
+# `file` is the first host file to claim `host` (in enumeration order) and
+# `other_file` the later one that claims it again.
 - id: load.duplicate_host_name
   phase: load
   fields: [host, file, other_file]
@@ -298,10 +300,11 @@
   fields: [pattern]
   implemented: true
 # `kind` is `map_key` (a `!remove` value at `key_path`) or `list_element` (a
-# `!remove` element of the list at `key_path`); `file` is the layer holding it.
+# `!remove` element of the list at `key_path`); `file` is the layer holding it
+# and `line` the line the `!remove` tag is written on.
 - id: validate.remove_matches_nothing
   phase: validate
-  fields: [file, key_path, kind]
+  fields: [file, key_path, kind, line]
   implemented: true
 - id: validate.secret_is_plaintext
   phase: validate

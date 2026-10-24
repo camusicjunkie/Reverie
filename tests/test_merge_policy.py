@@ -68,7 +68,9 @@ def test_remove_deletes_key_defined_by_a_more_general_layer(fixture_dir):
 @pytest.mark.story(8)
 def test_remove_targeting_only_a_more_specific_layer_is_a_validate_error(fixture_dir):
     source = fixture_dir("layered")
-    (source / "roles" / "web.yml").write_text("port: !remove\n", encoding="utf-8", newline="")
+    (source / "roles" / "web.yml").write_text(
+        "# comment\nport: !remove\n", encoding="utf-8", newline=""
+    )
     (source / "hosts" / "dublin" / "host1.yml").write_text(
         "dc: dublin\nrole: web\nport: 999\n", encoding="utf-8", newline=""
     )
@@ -83,6 +85,7 @@ def test_remove_targeting_only_a_more_specific_layer_is_a_validate_error(fixture
         file=str(source / "roles" / "web.yml"),
         key_path="port",
         kind="map_key",
+        line=2,
     )
 
 

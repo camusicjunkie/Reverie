@@ -1,7 +1,7 @@
 """Issue #59: the `reverie.yml` declarations the previous sweep left behind.
 
-[Name the malformed reverie.yml declarations the compiler drops in
-silence](https://github.com/camusicjunkie/Reverie/issues/58) named six
+Issue #58 (naming the malformed reverie.yml declarations the compiler
+drops in silence) named six
 parts of the file that degraded quietly and deliberately stopped there.
 These are the remaining five, same failure and same ADR 0009 premise
 leaking: a malformed element of `inventory.groups:`, a non-string

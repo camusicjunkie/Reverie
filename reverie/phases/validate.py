@@ -78,6 +78,7 @@ def _check_removals(
                     file=str(entry.layer.path),
                     key_path=path,
                     kind="map_key",
+                    line=value.line,
                 )
         else:
             seen_paths.add(path)
@@ -100,6 +101,7 @@ def _check_removals(
                         file=str(entry.layer.path),
                         key_path=path,
                         kind="list_element",
+                        line=element.line,
                     )
 
             seen_list_elements[path] = prior + [e for e in value if not isinstance(e, Remove)]

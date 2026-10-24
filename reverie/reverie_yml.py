@@ -159,7 +159,10 @@ def _duplicate_keys(root: yaml.Node | None) -> list[DuplicateKey]:
     Keys are compared as written (resolved tag and text), so `1` and `"1"`
     stay distinct, as they do once constructed. A node reached twice
     through an alias is walked once, which also keeps a self-referencing
-    anchor from looping.
+    anchor from looping. A duplicate inside an aliased mapping is thus
+    reported once, at the repeated declaration in the anchored text: that
+    is the line written twice, and naming it again at each `*alias` would
+    point at lines where nothing is.
     """
 
     found: list[DuplicateKey] = []
